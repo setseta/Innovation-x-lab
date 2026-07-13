@@ -20,6 +20,7 @@ export default defineConfig(function (_a) {
         preview: {
             host: '0.0.0.0',
             port: Number(process.env.PORT) || 4173,
+            allowedHosts: ['innovation-x-lab-frontend.onrender.com', 'localhost', '127.0.0.1'],
             proxy: {
                 '/api': {
                     target: apiTarget,
