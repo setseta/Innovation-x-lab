@@ -31,27 +31,82 @@ type Article = {
 type Subscriber = {
   _id: string;
   email: string;
+  subscriptionPlan?: string;
   subscribedAt: string;
+};
+
+type MemberRecord = {
+  _id: string;
+  name: string;
+  email: string;
+  subscriptionPlan: string;
+  subscriptionStatus: string;
+  planLabel?: string;
+  paymentProvider?: string;
+  billingCycle?: string;
+  createdAt?: string;
+};
+
+type MembershipSummary = {
+  totalMembers: number;
+  freeSubscribers: number;
+  premiumSubscribers: number;
+  monthlyRecurringRevenue: number;
+  annualSubscribers: number;
+  paymentHistory: Array<{ _id: string; userId: string; amount: number; billingCycle: string; provider: string; status: string; createdAt: string }>;
+  subscribers: Subscriber[];
+  members: MemberRecord[];
+};
+
+type Advertisement = {
+  _id: string;
+  title: string;
+  advertiserName: string;
+  destinationUrl: string;
+  placement: string;
+  image?: string;
+  active: boolean;
+  startDate: string;
+  endDate: string;
+  description?: string;
+  status?: string;
 };
 
 type Stats = {
   totalArticles: number;
   totalViews: number;
   totalSubscribers: number;
-  totalReviews: number;
+  totalMembers?: number;
+  freeMembers?: number;
+  premiumMembers?: number;
+  totalReviews?: number;
   recentPosts: Article[];
 };
 
 const AdminPage = () => {
   const [stats, setStats] = useState<Stats>({ totalArticles: 0, totalViews: 0, totalSubscribers: 0, totalReviews: 0, recentPosts: [] });
+  const [membershipData, setMembershipData] = useState<MembershipSummary | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [form, setForm] = useState<AdminForm>({ title: '', slug: '', category: 'AI Lab', description: '', content: '', image: '', author: 'Innovation X Lab', tags: '', seoTitle: '', seoDescription: '', published: false });
+  const [adForm, setAdForm] = useState({
+    title: '',
+    advertiserName: '',
+    destinationUrl: '',
+    placement: 'homepage-banner',
+    image: '',
+    active: true,
+    startDate: '',
+    endDate: '',
+    description: '',
+  });
   const [token, setToken] = useState('');
   const [authError, setAuthError] = useState('');
   const [status, setStatus] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingAdImage, setUploadingAdImage] = useState(false);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('adminToken');
@@ -63,10 +118,12 @@ const AdminPage = () => {
 
   const loadDashboard = async (currentToken: string) => {
     const headers = { Authorization: `Bearer ${currentToken}` };
-    const [statsResponse, articlesResponse, subscribersResponse] = await Promise.all([
+    const [statsResponse, articlesResponse, subscribersResponse, advertisementsResponse, membershipsResponse] = await Promise.all([
       fetch(buildApiUrl('/api/admin/stats'), { headers }),
       fetch(buildApiUrl('/api/admin/articles'), { headers }),
       fetch(buildApiUrl('/api/admin/newsletters'), { headers }),
+      fetch(buildApiUrl('/api/admin/advertisements'), { headers }),
+      fetch(buildApiUrl('/api/admin/memberships'), { headers }),
     ]);
     if (statsResponse.ok) {
       const statsData = await statsResponse.json();
@@ -79,6 +136,14 @@ const AdminPage = () => {
     if (subscribersResponse.ok) {
       const subscribersData = await subscribersResponse.json();
       setSubscribers(Array.isArray(subscribersData) ? subscribersData : []);
+    }
+    if (advertisementsResponse.ok) {
+      const advertisementsData = await advertisementsResponse.json();
+      setAdvertisements(Array.isArray(advertisementsData) ? advertisementsData : []);
+    }
+    if (membershipsResponse.ok) {
+      const membershipsData = await membershipsResponse.json();
+      setMembershipData(membershipsData);
     }
   };
 
@@ -113,6 +178,7 @@ const AdminPage = () => {
     setStats({ totalArticles: 0, totalViews: 0, totalSubscribers: 0, totalReviews: 0, recentPosts: [] });
     setArticles([]);
     setSubscribers([]);
+    setAdvertisements([]);
   };
 
   const handleCreateArticle = async (event: React.FormEvent) => {
@@ -162,6 +228,87 @@ const AdminPage = () => {
     }
   };
 
+  const handleAdvertisementSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!token) return;
+
+    const response = await fetch(buildApiUrl('/api/admin/advertisements'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(adForm),
+    });
+    const data = await response.json();
+    setStatus(response.ok ? 'Advertisement saved successfully.' : data.error || 'Unable to save advertisement.');
+    if (response.ok) {
+      loadDashboard(token);
+      setAdForm({
+        title: '',
+        advertiserName: '',
+        destinationUrl: '',
+        placement: 'homepage-banner',
+        image: '',
+        active: true,
+        startDate: '',
+        endDate: '',
+        description: '',
+      });
+    }
+  };
+
+  const handleToggleAdvertisement = async (advertisement: Advertisement) => {
+    if (!token) return;
+    const response = await fetch(buildApiUrl(`/api/admin/advertisements/${advertisement._id}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ active: !advertisement.active }),
+    });
+    if (response.ok) {
+      loadDashboard(token);
+      setStatus('Advertisement status updated.');
+    }
+  };
+
+  const handleDeleteAdvertisement = async (id: string) => {
+    if (!token) return;
+    const response = await fetch(buildApiUrl(`/api/admin/advertisements/${id}`), {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      loadDashboard(token);
+      setStatus('Advertisement removed.');
+    }
+  };
+
+  const handleUploadAdvertisementImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !token) {
+      return;
+    }
+    setUploadingAdImage(true);
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch(buildApiUrl('/api/upload'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (response.ok && data.url) {
+        setAdForm((prev) => ({ ...prev, image: data.url }));
+        setStatus('Advertisement banner uploaded successfully.');
+      } else {
+        setStatus(data.error || 'Failed to upload banner image.');
+      }
+    } catch (error) {
+      setStatus('Advertisement banner upload failed.');
+    } finally {
+      setUploadingAdImage(false);
+    }
+  };
+
   const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !token) {
@@ -194,8 +341,10 @@ const AdminPage = () => {
   const overviewCards = useMemo(() => [
     { label: 'Total articles', value: stats.totalArticles },
     { label: 'Total views', value: stats.totalViews },
-    { label: 'Total subscribers', value: stats.totalSubscribers },
-  ], [stats]);
+    { label: 'Total members', value: stats.totalMembers ?? membershipData?.totalMembers ?? 0 },
+    { label: 'Free subscribers', value: stats.freeMembers ?? membershipData?.freeSubscribers ?? 0 },
+    { label: 'Premium subscribers', value: stats.premiumMembers ?? membershipData?.premiumSubscribers ?? 0 },
+  ], [stats, membershipData]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -226,7 +375,7 @@ const AdminPage = () => {
             <div className="text-sm text-slate-400">Signed in securely as admin.</div>
             <button onClick={handleLogout} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200">Logout</button>
           </div>
-          <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-5">
             {overviewCards.map((card) => (
               <div key={card.label} className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
                 <div className="text-sm text-slate-400">{card.label}</div>
@@ -282,6 +431,106 @@ const AdminPage = () => {
                   )) : <p>No subscribers yet.</p>}
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h2 className="text-2xl font-semibold text-white">Membership management</h2>
+              <div className="text-sm text-slate-400">Revenue visibility for monthly and annual plans</div>
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm text-slate-400">Total members</div>
+                <div className="mt-3 text-3xl font-semibold text-white">{membershipData?.totalMembers ?? 0}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm text-slate-400">Free subscribers</div>
+                <div className="mt-3 text-3xl font-semibold text-white">{membershipData?.freeSubscribers ?? 0}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm text-slate-400">Premium subscribers</div>
+                <div className="mt-3 text-3xl font-semibold text-white">{membershipData?.premiumSubscribers ?? 0}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm text-slate-400">Monthly recurring revenue</div>
+                <div className="mt-3 text-3xl font-semibold text-white">${membershipData?.monthlyRecurringRevenue ?? 0}</div>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-4">
+                <h3 className="text-xl font-semibold text-white">Members</h3>
+                <div className="mt-4 space-y-2">
+                  {membershipData?.members?.length ? membershipData.members.slice(0, 8).map((member) => (
+                    <div key={member._id} className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-slate-400">
+                      <div className="font-semibold text-white">{member.name || member.email}</div>
+                      <div className="mt-1">{member.email}</div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-1 text-cyan-200">{member.planLabel || member.subscriptionPlan}</span>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">{member.subscriptionStatus}</span>
+                      </div>
+                    </div>
+                  )) : <p>No members yet.</p>}
+                </div>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-4">
+                <h3 className="text-xl font-semibold text-white">Payment history</h3>
+                <div className="mt-4 space-y-2">
+                  {membershipData?.paymentHistory?.length ? membershipData.paymentHistory.slice(0, 8).map((entry) => (
+                    <div key={entry._id} className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm text-slate-400">
+                      <div className="font-semibold text-white">${entry.amount} • {entry.billingCycle}</div>
+                      <div className="mt-1">{entry.provider} • {entry.status}</div>
+                      <div className="mt-1 text-xs">{new Date(entry.createdAt).toLocaleString()}</div>
+                    </div>
+                  )) : <p>No payment history yet.</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
+            <h2 className="text-2xl font-semibold text-white">Advertisements</h2>
+            <form onSubmit={handleAdvertisementSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
+              <input value={adForm.title} onChange={(event) => setAdForm({ ...adForm, title: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Campaign title" />
+              <input value={adForm.advertiserName} onChange={(event) => setAdForm({ ...adForm, advertiserName: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Advertiser name" />
+              <input value={adForm.destinationUrl} onChange={(event) => setAdForm({ ...adForm, destinationUrl: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Destination URL" />
+              <select value={adForm.placement} onChange={(event) => setAdForm({ ...adForm, placement: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none">
+                <option value="homepage-banner">Homepage banner</option>
+                <option value="article-page">Article page</option>
+                <option value="sidebar">Sidebar</option>
+                <option value="newsletter-sponsorship">Newsletter sponsorship</option>
+              </select>
+              <div className="flex flex-col gap-3 sm:flex-row md:col-span-2">
+                <input value={adForm.image} onChange={(event) => setAdForm({ ...adForm, image: event.target.value })} className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Banner image URL" />
+                <label className="cursor-pointer rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 transition hover:bg-white/10">
+                  <input type="file" accept="image/*" className="hidden" onChange={handleUploadAdvertisementImage} />
+                  {uploadingAdImage ? 'Uploading…' : 'Upload banner'}
+                </label>
+              </div>
+              <input type="date" value={adForm.startDate} onChange={(event) => setAdForm({ ...adForm, startDate: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" />
+              <input type="date" value={adForm.endDate} onChange={(event) => setAdForm({ ...adForm, endDate: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" />
+              <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={adForm.active} onChange={(event) => setAdForm({ ...adForm, active: event.target.checked })} /> Active campaign</label>
+              <textarea value={adForm.description} onChange={(event) => setAdForm({ ...adForm, description: event.target.value })} className="min-h-24 w-full rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none md:col-span-2" placeholder="Short promotional note" />
+              <div className="md:col-span-2">
+                <button type="submit" className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white">Create advertisement</button>
+              </div>
+            </form>
+            <div className="mt-8 space-y-3">
+              {advertisements.map((advertisement) => (
+                <div key={advertisement._id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="font-semibold text-white">{advertisement.title}</div>
+                      <div className="mt-1 text-sm text-slate-400">{advertisement.advertiserName} • {advertisement.placement}</div>
+                      <div className="mt-2 text-xs uppercase tracking-[0.2em] text-cyan-300">{advertisement.status}</div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-cyan-300">
+                      <button type="button" onClick={() => handleToggleAdvertisement(advertisement)} className="rounded-full border border-white/10 px-3 py-1">{advertisement.active ? 'Deactivate' : 'Activate'}</button>
+                      <button type="button" onClick={() => handleDeleteAdvertisement(advertisement._id)} className="rounded-full border border-rose-400/30 px-3 py-1 text-rose-300">Remove</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

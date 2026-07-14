@@ -6,6 +6,16 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
+import { isAdvertisementActive } from './advertisementUtils.js';
+import {
+  PAYMENT_PROVIDERS,
+  SUBSCRIPTION_STATUSES,
+  calculateSubscriptionPrice,
+  getPlanLabel,
+  getSubscriptionStatus,
+  getSubscriptionSummary,
+  isPremiumAccessAllowed,
+} from './subscriptionUtils.js';
 
 dotenv.config();
 
@@ -15,7 +25,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/innovationxlab';
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/innovationxlab';
 const JWT_SECRET = process.env.JWT_SECRET || 'innovationxlab-secret';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@innovationxlab.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin123456';
@@ -28,11 +38,32 @@ cloudinary.config({
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+const normalizeEmail = (email) => String(email || '').toLowerCase().trim();
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['admin', 'user'], default: 'user' },
+  membershipPlan: { type: String, enum: ['free', 'premium'], default: 'free' },
+  subscriptionPlan: { type: String, enum: ['free', 'premium'], default: 'free' },
+  subscriptionStatus: { type: String, enum: SUBSCRIPTION_STATUSES, default: 'active' },
+  subscriptionStartDate: { type: Date, default: Date.now },
+  subscriptionEndDate: { type: Date, default: null },
+  paymentProvider: { type: String, default: '' },
+  billingCycle: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
+  newsletterPreference: { type: String, enum: ['free', 'premium'], default: 'free' },
+}, { timestamps: true });
+
+const subscriptionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  plan: { type: String, enum: ['free', 'premium'], required: true },
+  billingCycle: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
+  price: { type: Number, required: true },
+  paymentProvider: { type: String, default: '' },
+  status: { type: String, enum: SUBSCRIPTION_STATUSES, default: 'pending' },
+  startDate: { type: Date, default: Date.now },
+  endDate: { type: Date, default: null },
 }, { timestamps: true });
 
 const articleSchema = new mongoose.Schema({
@@ -47,6 +78,7 @@ const articleSchema = new mongoose.Schema({
   seoTitle: String,
   seoDescription: String,
   published: { type: Boolean, default: false },
+  premium: { type: Boolean, default: false },
   views: { type: Number, default: 0 },
 }, { timestamps: true });
 
@@ -64,13 +96,43 @@ const reviewSchema = new mongoose.Schema({
 
 const newsletterSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
+  subscriptionPlan: { type: String, enum: ['free', 'premium'], default: 'free' },
   subscribedAt: { type: Date, default: Date.now },
 });
+
+const paymentHistorySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  amount: { type: Number, required: true },
+  currency: { type: String, default: 'USD' },
+  billingCycle: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
+  provider: { type: String, default: '' },
+  status: { type: String, enum: ['succeeded', 'pending', 'failed', 'cancelled'], default: 'pending' },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const advertisementSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  advertiserName: { type: String, required: true },
+  destinationUrl: { type: String, required: true },
+  placement: {
+    type: String,
+    required: true,
+    enum: ['homepage-banner', 'article-page', 'sidebar', 'newsletter-sponsorship'],
+  },
+  image: { type: String, default: '' },
+  active: { type: Boolean, default: true },
+  startDate: { type: Date, default: Date.now },
+  endDate: { type: Date, required: true },
+  description: { type: String, default: '' },
+}, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
 const Article = mongoose.model('Article', articleSchema);
 const Review = mongoose.model('Review', reviewSchema);
 const Newsletter = mongoose.model('Newsletter', newsletterSchema);
+const PaymentHistory = mongoose.model('PaymentHistory', paymentHistorySchema);
+const Advertisement = mongoose.model('Advertisement', advertisementSchema);
+const Subscription = mongoose.model('Subscription', subscriptionSchema);
 
 const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -117,7 +179,8 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const user = await User.findOne({ email: String(email).toLowerCase() });
+  const normalizedEmail = normalizeEmail(email);
+  const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
@@ -127,8 +190,84 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
+  const normalizedStatus = getSubscriptionStatus(user.subscriptionStatus, user.subscriptionStartDate, user.subscriptionEndDate);
   const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+  res.json({
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      membershipPlan: user.membershipPlan,
+      subscriptionPlan: user.subscriptionPlan,
+      subscriptionStatus: normalizedStatus,
+      subscriptionStartDate: user.subscriptionStartDate,
+      subscriptionEndDate: user.subscriptionEndDate,
+      paymentProvider: user.paymentProvider,
+      billingCycle: user.billingCycle,
+      newsletterPreference: user.newsletterPreference,
+    },
+  });
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password, membershipPlan = 'free', billingCycle = 'monthly' } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+
+  const normalizedEmail = normalizeEmail(email);
+  const existingUser = await User.findOne({ email: normalizedEmail });
+  if (existingUser) {
+    return res.status(409).json({ error: 'A user with that email already exists' });
+  }
+
+  const normalizedPlan = membershipPlan === 'premium' ? 'premium' : 'free';
+  const normalizedBillingCycle = billingCycle === 'annual' ? 'annual' : 'monthly';
+  const hashedPassword = await bcrypt.hash(String(password), 10);
+  const createdUser = await User.create({
+    name,
+    email: normalizedEmail,
+    password: hashedPassword,
+    role: 'user',
+    membershipPlan: normalizedPlan,
+    subscriptionPlan: normalizedPlan,
+    subscriptionStatus: normalizedPlan === 'premium' ? 'pending' : 'active',
+    subscriptionStartDate: new Date(),
+    subscriptionEndDate: normalizedPlan === 'premium' ? null : null,
+    newsletterPreference: normalizedPlan === 'premium' ? 'premium' : 'free',
+    paymentProvider: '',
+    billingCycle: normalizedBillingCycle,
+  });
+
+  if (normalizedPlan === 'free') {
+    await Subscription.create({
+      userId: createdUser._id,
+      plan: 'free',
+      billingCycle: 'monthly',
+      price: 0,
+      paymentProvider: '',
+      status: 'active',
+      startDate: createdUser.subscriptionStartDate,
+      endDate: null,
+    });
+  }
+
+  const token = jwt.sign({ id: createdUser._id, role: createdUser.role }, JWT_SECRET, { expiresIn: '7d' });
+  res.status(201).json({
+    token,
+    user: {
+      id: createdUser._id,
+      name: createdUser.name,
+      email: createdUser.email,
+      role: createdUser.role,
+      membershipPlan: createdUser.membershipPlan,
+      subscriptionPlan: createdUser.subscriptionPlan,
+      subscriptionStatus: createdUser.subscriptionStatus,
+      billingCycle: createdUser.billingCycle,
+    },
+  });
 });
 
 app.get('/api/auth/me', authenticate, (req, res) => {
@@ -140,7 +279,7 @@ app.post('/api/auth/logout', (_req, res) => {
 });
 
 app.get('/api/articles', async (req, res) => {
-  const { category, published, limit } = req.query;
+  const { category, published, limit, premium } = req.query;
   const query = {};
 
   if (category) {
@@ -151,6 +290,12 @@ app.get('/api/articles', async (req, res) => {
     query.published = true;
   } else if (published === 'false') {
     query.published = false;
+  }
+
+  if (premium === 'true') {
+    query.premium = true;
+  } else if (premium === 'false') {
+    query.premium = false;
   }
 
   const articles = await Article.find(query).sort({ createdAt: -1 }).lean();
@@ -166,11 +311,31 @@ app.get('/api/articles/:slug', async (req, res) => {
   if (!article.published && req.headers.authorization?.startsWith('Bearer ') === false) {
     return res.status(404).json({ error: 'Article not found' });
   }
+
+  const authHeader = req.headers.authorization;
+  if (article.premium) {
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(403).json({ error: 'Unlock this article with Innovation X Premium.', premiumRequired: true });
+    }
+
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findById(decoded.id).lean();
+      const status = getSubscriptionStatus(user?.subscriptionStatus, user?.subscriptionStartDate, user?.subscriptionEndDate);
+      if (!isPremiumAccessAllowed(user?.subscriptionPlan, status)) {
+        return res.status(403).json({ error: 'Unlock this article with Innovation X Premium.', premiumRequired: true });
+      }
+    } catch (error) {
+      return res.status(403).json({ error: 'Unlock this article with Innovation X Premium.', premiumRequired: true });
+    }
+  }
+
   res.json(article);
 });
 
 app.post('/api/articles', authenticate, requireAdmin, async (req, res) => {
-  const { title, category, description, content, image, author, tags, seoTitle, seoDescription, published } = req.body;
+  const { title, category, description, content, image, author, tags, seoTitle, seoDescription, published, premium } = req.body;
   if (!title || !category || !description || !content) {
     return res.status(400).json({ error: 'Title, category, description, and content are required' });
   }
@@ -189,6 +354,7 @@ app.post('/api/articles', authenticate, requireAdmin, async (req, res) => {
     seoTitle: seoTitle || title,
     seoDescription: seoDescription || description,
     published: Boolean(published),
+    premium: Boolean(premium),
   });
 
   res.status(201).json(article);
@@ -200,7 +366,7 @@ app.put('/api/articles/:id', authenticate, requireAdmin, async (req, res) => {
     return res.status(404).json({ error: 'Article not found' });
   }
 
-  const { title, category, description, content, image, author, tags, seoTitle, seoDescription, published, slug } = req.body;
+  const { title, category, description, content, image, author, tags, seoTitle, seoDescription, published, premium, slug } = req.body;
   if (title) article.title = title;
   if (category) article.category = category;
   if (description) article.description = description;
@@ -211,6 +377,7 @@ app.put('/api/articles/:id', authenticate, requireAdmin, async (req, res) => {
   if (seoTitle !== undefined) article.seoTitle = seoTitle;
   if (seoDescription !== undefined) article.seoDescription = seoDescription;
   if (published !== undefined) article.published = Boolean(published);
+  if (premium !== undefined) article.premium = Boolean(premium);
   if (slug) article.slug = slugify(slug);
   article.updatedAt = new Date();
   await article.save();
@@ -313,29 +480,312 @@ app.delete('/api/reviews/:id', authenticate, requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+app.get('/api/advertisements', async (req, res) => {
+  const { placement } = req.query;
+  const query = { active: true };
+
+  if (placement) {
+    query.placement = String(placement);
+  }
+
+  const advertisements = await Advertisement.find(query).sort({ createdAt: -1 }).lean();
+  const visibleAdvertisements = advertisements.filter((advertisement) => isAdvertisementActive(advertisement));
+  res.json(visibleAdvertisements);
+});
+
+app.get('/api/admin/advertisements', authenticate, requireAdmin, async (_req, res) => {
+  const advertisements = await Advertisement.find().sort({ createdAt: -1 }).lean();
+  res.json(advertisements.map((advertisement) => ({
+    ...advertisement,
+    status: isAdvertisementActive(advertisement) ? 'Active' : 'Expired or inactive',
+  })));
+});
+
+app.post('/api/admin/advertisements', authenticate, requireAdmin, async (req, res) => {
+  const {
+    title,
+    advertiserName,
+    destinationUrl,
+    placement,
+    image,
+    active,
+    startDate,
+    endDate,
+    description,
+  } = req.body;
+
+  if (!title || !advertiserName || !destinationUrl || !placement || !endDate) {
+    return res.status(400).json({ error: 'Title, advertiser name, destination URL, placement, and expiry date are required' });
+  }
+
+  const advertisement = await Advertisement.create({
+    title,
+    advertiserName,
+    destinationUrl,
+    placement,
+    image: image || '',
+    active: Boolean(active),
+    startDate: startDate ? new Date(startDate) : new Date(),
+    endDate: new Date(endDate),
+    description: description || '',
+  });
+
+  res.status(201).json(advertisement);
+});
+
+app.put('/api/admin/advertisements/:id', authenticate, requireAdmin, async (req, res) => {
+  const advertisement = await Advertisement.findById(req.params.id);
+  if (!advertisement) {
+    return res.status(404).json({ error: 'Advertisement not found' });
+  }
+
+  const {
+    title,
+    advertiserName,
+    destinationUrl,
+    placement,
+    image,
+    active,
+    startDate,
+    endDate,
+    description,
+  } = req.body;
+
+  if (title !== undefined) advertisement.title = title;
+  if (advertiserName !== undefined) advertisement.advertiserName = advertiserName;
+  if (destinationUrl !== undefined) advertisement.destinationUrl = destinationUrl;
+  if (placement !== undefined) advertisement.placement = placement;
+  if (image !== undefined) advertisement.image = image;
+  if (active !== undefined) advertisement.active = Boolean(active);
+  if (startDate !== undefined) advertisement.startDate = startDate ? new Date(startDate) : new Date();
+  if (endDate !== undefined) advertisement.endDate = new Date(endDate);
+  if (description !== undefined) advertisement.description = description;
+
+  await advertisement.save();
+  res.json(advertisement);
+});
+
+app.delete('/api/admin/advertisements/:id', authenticate, requireAdmin, async (req, res) => {
+  const advertisement = await Advertisement.findByIdAndDelete(req.params.id);
+  if (!advertisement) {
+    return res.status(404).json({ error: 'Advertisement not found' });
+  }
+  res.json({ success: true });
+});
+
 app.post('/api/newsletter', async (req, res) => {
-  const { email } = req.body;
+  const { email, plan = 'free' } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
+  const normalizedPlan = plan === 'premium' ? 'premium' : 'free';
   const existing = await Newsletter.findOne({ email: String(email).toLowerCase() });
-  if (existing) return res.status(200).json({ message: 'Already subscribed' });
+  if (existing) {
+    existing.subscriptionPlan = normalizedPlan;
+    await existing.save();
+    return res.status(200).json({ message: 'Already subscribed' });
+  }
 
-  await Newsletter.create({ email: String(email).toLowerCase() });
+  await Newsletter.create({ email: String(email).toLowerCase(), subscriptionPlan: normalizedPlan });
   res.status(201).json({ message: 'Subscribed' });
 });
 
+app.get('/api/subscriptions/plans', (_req, res) => {
+  res.json({
+    plans: [
+      {
+        id: 'free',
+        name: 'Innovation X Free',
+        price: 0,
+        billingCycle: 'monthly',
+        buttonLabel: 'Get Started',
+        benefits: [
+          'Access to free technology articles',
+          'Latest AI breakthroughs',
+          'Gadget and software updates',
+          'Coding insights',
+          'Startup news',
+          'Weekly technology newsletter',
+          'Access to public reviews',
+        ],
+      },
+      {
+        id: 'premium',
+        name: 'Premium',
+        price: 2,
+        annualPrice: 20,
+        billingCycle: 'monthly',
+        annualBillingCycle: 'annual',
+        buttonLabel: 'Upgrade Now',
+        benefits: [
+          'Everything included in Free plan',
+          'Premium technology reports',
+          'Exclusive AI research and analysis',
+          'Deep-dive technology articles',
+          'Startup intelligence reports',
+          'Early access to selected content',
+          'Ad-free reading experience',
+          'Premium newsletter editions',
+          'Downloadable technology guides',
+          'Exclusive member-only content',
+        ],
+      },
+    ],
+    paymentProviders: PAYMENT_PROVIDERS,
+  });
+});
+
+app.get('/api/subscriptions/me', authenticate, async (req, res) => {
+  const user = await User.findById(req.user._id).lean();
+  const summary = getSubscriptionSummary(user);
+  res.json({ user, summary });
+});
+
+app.post('/api/subscriptions/checkout', authenticate, async (req, res) => {
+  const { plan, billingCycle = 'monthly', provider = 'Stripe' } = req.body;
+  if (plan !== 'premium') {
+    return res.status(400).json({ error: 'Only premium subscriptions are available' });
+  }
+
+  const amount = calculateSubscriptionPrice(plan, billingCycle);
+  const startDate = new Date();
+  const endDate = billingCycle === 'annual'
+    ? new Date(new Date(startDate).setFullYear(startDate.getFullYear() + 1))
+    : new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+
+  const user = await User.findById(req.user._id);
+  user.membershipPlan = 'premium';
+  user.subscriptionPlan = 'premium';
+  user.subscriptionStatus = 'pending';
+  user.subscriptionStartDate = new Date();
+  user.subscriptionEndDate = endDate;
+  user.paymentProvider = provider;
+  user.billingCycle = billingCycle;
+  user.newsletterPreference = 'premium';
+  await user.save();
+
+  await Subscription.create({
+    userId: user._id,
+    plan: 'premium',
+    billingCycle,
+    price: amount,
+    paymentProvider: provider,
+    status: 'pending',
+    startDate: user.subscriptionStartDate,
+    endDate,
+  });
+
+  await PaymentHistory.create({
+    userId: user._id,
+    amount,
+    currency: 'USD',
+    billingCycle,
+    provider,
+    status: 'pending',
+  });
+
+  res.json({
+    message: 'Checkout initiated',
+    plan,
+    billingCycle,
+    amount,
+    provider,
+    status: 'pending',
+    nextRenewal: endDate,
+  });
+});
+
+app.post('/api/subscriptions/confirm', authenticate, async (req, res) => {
+  const { status = 'active', paymentId, provider } = req.body;
+  const user = await User.findById(req.user._id);
+  const normalizedStatus = status === 'succeeded' ? 'active' : status;
+
+  const subscription = await Subscription.findOne({ userId: user._id, status: 'pending' }).sort({ createdAt: -1 });
+  if (subscription) {
+    subscription.status = normalizedStatus;
+    subscription.paymentProvider = provider || subscription.paymentProvider;
+    if (paymentId) subscription.paymentProvider = provider || subscription.paymentProvider;
+    await subscription.save();
+  }
+
+  user.subscriptionStatus = normalizedStatus;
+  user.paymentProvider = provider || user.paymentProvider;
+  await user.save();
+
+  await PaymentHistory.create({
+    userId: user._id,
+    amount: calculateSubscriptionPrice(user.subscriptionPlan, user.billingCycle),
+    currency: 'USD',
+    billingCycle: user.billingCycle,
+    provider: provider || user.paymentProvider,
+    status: status === 'succeeded' ? 'succeeded' : 'pending',
+  });
+
+  res.json({ message: 'Subscription updated', user: { subscriptionPlan: user.subscriptionPlan, subscriptionStatus: user.subscriptionStatus, paymentProvider: user.paymentProvider } });
+});
+
+app.post('/api/subscriptions/cancel', authenticate, async (req, res) => {
+  const user = await User.findById(req.user._id);
+  user.subscriptionStatus = 'cancelled';
+  user.subscriptionEndDate = new Date();
+  await user.save();
+
+  const subscription = await Subscription.findOne({ userId: user._id, status: { $in: ['active', 'pending'] } }).sort({ createdAt: -1 });
+  if (subscription) {
+    subscription.status = 'cancelled';
+    subscription.endDate = user.subscriptionEndDate;
+    await subscription.save();
+  }
+
+  res.json({ message: 'Subscription cancelled', status: user.subscriptionStatus });
+});
+
+app.get('/api/admin/memberships', authenticate, requireAdmin, async (_req, res) => {
+  const [users, paymentHistory, newsletters] = await Promise.all([
+    User.find().sort({ createdAt: -1 }).lean(),
+    PaymentHistory.find().sort({ createdAt: -1 }).lean(),
+    Newsletter.find().sort({ subscribedAt: -1 }).lean(),
+  ]);
+
+  const totalMembers = users.length;
+  const freeSubscribers = users.filter((entry) => entry.subscriptionPlan === 'free').length;
+  const premiumSubscribers = users.filter((entry) => entry.subscriptionPlan === 'premium').length;
+  const monthlyRecurringRevenue = paymentHistory.filter((entry) => entry.billingCycle === 'monthly' && entry.status === 'succeeded').reduce((sum, entry) => sum + entry.amount, 0);
+  const annualSubscribers = users.filter((entry) => entry.billingCycle === 'annual').length;
+
+  res.json({
+    totalMembers,
+    freeSubscribers,
+    premiumSubscribers,
+    monthlyRecurringRevenue,
+    annualSubscribers,
+    paymentHistory,
+    subscribers: newsletters,
+    members: users.map((user) => ({
+      ...user,
+      planLabel: getPlanLabel(user.subscriptionPlan),
+      subscriptionStatus: getSubscriptionStatus(user.subscriptionStatus, user.subscriptionStartDate, user.subscriptionEndDate),
+    })),
+  });
+});
+
 app.get('/api/admin/stats', authenticate, requireAdmin, async (_req, res) => {
-  const [articles, subscribers, recentArticles] = await Promise.all([
+  const [articles, subscribers, recentArticles, users] = await Promise.all([
     Article.find().lean(),
     Newsletter.find().lean(),
     Article.find().sort({ createdAt: -1 }).limit(5).lean(),
+    User.find().lean(),
   ]);
 
   const totalViews = articles.reduce((sum, article) => sum + (article.views || 0), 0);
+  const premiumMembers = users.filter((entry) => entry.subscriptionPlan === 'premium').length;
+  const freeMembers = users.filter((entry) => entry.subscriptionPlan === 'free').length;
   res.json({
     totalArticles: articles.length,
     totalViews,
     totalSubscribers: subscribers.length,
+    totalMembers: users.length,
+    freeMembers,
+    premiumMembers,
     recentPosts: recentArticles,
     recentActivity: recentArticles.map((article) => ({
       title: article.title,

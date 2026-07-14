@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Sparkles, Zap } from 'lucide-react';
+import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
@@ -18,10 +18,22 @@ type Article = {
   createdAt?: string;
 };
 
+type Advertisement = {
+  _id: string;
+  title: string;
+  advertiserName: string;
+  destinationUrl: string;
+  placement: string;
+  image?: string;
+  description?: string;
+};
+
 const HomePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [articles, setArticles] = useState<Article[]>([]);
+  const [homepageAds, setHomepageAds] = useState<Advertisement[]>([]);
+  const [newsletterAds, setNewsletterAds] = useState<Advertisement[]>([]);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
 
@@ -83,6 +95,23 @@ const HomePage = () => {
 
   useEffect(() => {
     fetchArticles();
+    const fetchAds = async () => {
+      try {
+        const [homepageResponse, newsletterResponse] = await Promise.all([
+          fetch(buildApiUrl('/api/advertisements?placement=homepage-banner')),
+          fetch(buildApiUrl('/api/advertisements?placement=newsletter-sponsorship')),
+        ]);
+        const homepageData = await homepageResponse.json();
+        const newsletterData = await newsletterResponse.json();
+        setHomepageAds(Array.isArray(homepageData) ? homepageData : []);
+        setNewsletterAds(Array.isArray(newsletterData) ? newsletterData : []);
+      } catch (error) {
+        console.error(error);
+        setHomepageAds([]);
+        setNewsletterAds([]);
+      }
+    };
+    fetchAds();
   }, []);
 
   const filteredStories = useMemo(() => {
@@ -195,6 +224,24 @@ const HomePage = () => {
           </motion.div>
         </div>
       </section>
+
+      {homepageAds.length > 0 ? (
+        <section className="mx-auto max-w-7xl px-4 pb-4 pt-6 sm:px-6 lg:px-8 lg:pb-6 lg:pt-8">
+          <div className="rounded-[2rem] border border-cyan-400/20 bg-slate-900/75 p-4 shadow-[0_0_45px_rgba(34,211,238,0.08)] sm:p-6">
+            {homepageAds.map((ad) => (
+              <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-[1.4rem] border border-white/10 bg-gradient-to-r from-cyan-500/10 to-violet-500/10">
+                {ad.image ? <img src={ad.image} alt={ad.title} className="h-48 w-full object-cover" /> : null}
+                <div className="p-5">
+                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300">Sponsored</p>
+                  <h3 className="mt-2 text-xl font-semibold text-white">{ad.title}</h3>
+                  {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
+                  <p className="mt-3 text-sm text-cyan-300">{ad.advertiserName}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8 lg:pb-24 lg:pt-8">
         <div className="rounded-[2rem] border border-cyan-400/20 bg-slate-900/75 p-6 shadow-[0_0_45px_rgba(34,211,238,0.08)] sm:p-8 lg:p-10">
@@ -389,6 +436,20 @@ const HomePage = () => {
             <input value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none" placeholder="Enter your email" />
             <button type="submit" className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white">Subscribe</button>
           </form>
+          {newsletterAds.length > 0 ? (
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+              {newsletterAds.map((ad) => (
+                <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="rounded-[1.3rem] border border-white/10 bg-slate-950/70 p-4">
+                  {ad.image ? <img src={ad.image} alt={ad.title} className="h-24 w-full rounded-xl object-cover" /> : null}
+                  <div className="mt-3">
+                    <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">Sponsored</div>
+                    <h3 className="mt-2 text-lg font-semibold text-white">{ad.title}</h3>
+                    {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : null}
           {newsletterStatus ? <p className="mt-3 text-sm text-cyan-300">{newsletterStatus}</p> : null}
         </div>
       </section>

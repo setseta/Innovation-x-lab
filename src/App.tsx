@@ -13,6 +13,8 @@ import AdminPage from './pages/AdminPage';
 import CategoryPage from './pages/CategoryPage';
 import SearchPage from './pages/SearchPage';
 import ReviewEditorPage from './pages/ReviewEditorPage';
+import MembershipPage from './pages/MembershipPage';
+import MembershipDetailsPage from './pages/MembershipDetailsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -37,6 +39,7 @@ function App() {
     { name: 'Search', href: '/search' },
     { name: 'Review Admin', href: '/admin/reviews' },
     { name: 'About', href: '/about' },
+    { name: 'Membership', href: '/membership' },
     { name: 'Contact', href: '/contact' },
     { name: 'Admin', href: '/admin' },
   ];
@@ -115,6 +118,8 @@ function App() {
           <Route path="/articles/:slug" element={<ArticlePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/membership" element={<MembershipPage />} />
+          <Route path="/membership/:plan" element={<MembershipDetailsPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/admin/reviews" element={<ProtectedRoute><ReviewEditorPage /></ProtectedRoute>} />

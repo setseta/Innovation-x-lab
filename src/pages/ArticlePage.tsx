@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Facebook, Linkedin, Share2, Twitter } from 'lucide-react';
+import { ArrowRight, Crown, Facebook, Linkedin, Share2, Twitter } from 'lucide-react';
 import { buildApiUrl } from '../config/api';
 
 type Article = {
@@ -13,14 +13,34 @@ type Article = {
   content: string;
   image?: string;
   author?: string;
+  premium?: boolean;
   createdAt?: string;
+};
+
+type Advertisement = {
+  _id: string;
+  title: string;
+  advertiserName: string;
+  destinationUrl: string;
+  placement: string;
+  image?: string;
+  description?: string;
 };
 
 const ArticlePage = () => {
   const { slug } = useParams<{ slug?: string }>();
   const [article, setArticle] = useState<Article | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+  const [articleAds, setArticleAds] = useState<Advertisement[]>([]);
+  const [sidebarAds, setSidebarAds] = useState<Advertisement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [premiumMessage, setPremiumMessage] = useState('');
+  const [token] = useState<string | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    return localStorage.getItem('authToken');
+  });
 
   useEffect(() => {
     const loadArticle = async () => {
@@ -30,13 +50,29 @@ const ArticlePage = () => {
       }
 
       try {
-        const response = await fetch(buildApiUrl(`/api/articles/${slug}`));
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const response = await fetch(buildApiUrl(`/api/articles/${slug}`), headers ? { headers } : undefined);
         const data = await response.json();
-        if (data && !data.error) {
+        if (response.ok && data && !data.error) {
           setArticle(data);
+          setPremiumMessage('');
+        } else if (data?.premiumRequired) {
+          setPremiumMessage(data.error || 'Unlock this article with Innovation X Premium.');
+          setArticle(null);
+        }
+        if (data && !data.error) {
           const relatedResponse = await fetch(buildApiUrl(`/api/articles?published=true&limit=4`));
           const relatedData = await relatedResponse.json();
           setRelatedArticles((Array.isArray(relatedData) ? relatedData : []).filter((entry: Article) => entry.slug !== slug).slice(0, 3));
+
+          const [articleAdsResponse, sidebarAdsResponse] = await Promise.all([
+            fetch(buildApiUrl('/api/advertisements?placement=article-page')),
+            fetch(buildApiUrl('/api/advertisements?placement=sidebar')),
+          ]);
+          const articleAdsData = await articleAdsResponse.json();
+          const sidebarAdsData = await sidebarAdsResponse.json();
+          setArticleAds(Array.isArray(articleAdsData) ? articleAdsData : []);
+          setSidebarAds(Array.isArray(sidebarAdsData) ? sidebarAdsData : []);
         }
       } catch (error) {
         console.error(error);
@@ -46,10 +82,23 @@ const ArticlePage = () => {
     };
 
     loadArticle();
-  }, [slug]);
+  }, [slug, token]);
 
   if (loading) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-slate-400">Loading article…</div>;
+  }
+
+  if (!article && premiumMessage) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+        <div className="rounded-[2rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-10 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-300"><Crown size={24} /></div>
+          <h1 className="mt-6 text-3xl font-semibold text-white">Unlock this article with Innovation X Premium.</h1>
+          <p className="mt-4 text-lg text-slate-300">Premium members get deeper reporting, exclusive research, and member-only content.</p>
+          <Link to="/membership" className="mt-8 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-5 py-3 font-semibold text-white">View premium plans</Link>
+        </div>
+      </div>
+    );
   }
 
   if (!article) {
@@ -100,6 +149,40 @@ const ArticlePage = () => {
               ))}
             </div>
           </div>
+          {articleAds.length > 0 ? (
+            <div className="rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-6">
+              <h3 className="text-xl font-semibold text-white">Sponsored</h3>
+              <div className="mt-4 space-y-3">
+                {articleAds.map((ad) => (
+                  <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="block rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                    {ad.image ? <img src={ad.image} alt={ad.title} className="h-24 w-full rounded-xl object-cover" /> : null}
+                    <div className="mt-3">
+                      <div className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">Partner</div>
+                      <h4 className="mt-2 text-base font-semibold text-white">{ad.title}</h4>
+                      {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {sidebarAds.length > 0 ? (
+            <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
+              <h3 className="text-xl font-semibold text-white">Featured Partner</h3>
+              <div className="mt-4 space-y-3">
+                {sidebarAds.map((ad) => (
+                  <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="block rounded-2xl border border-white/10 bg-white/5 p-4">
+                    {ad.image ? <img src={ad.image} alt={ad.title} className="h-20 w-full rounded-xl object-cover" /> : null}
+                    <div className="mt-3">
+                      <div className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">Sidebar</div>
+                      <h4 className="mt-2 text-base font-semibold text-white">{ad.title}</h4>
+                      {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-6">
             <h3 className="text-xl font-semibold text-white">Global Perspective</h3>
             <p className="mt-3 text-sm leading-6 text-slate-400">Join the conversation around the future of intelligent technology and the companies shaping it worldwide.</p>
