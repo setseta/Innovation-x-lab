@@ -1,17 +1,60 @@
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Facebook, Linkedin, Share2, Twitter } from 'lucide-react';
-import { allArticles } from '../data/content';
+import { buildApiUrl } from '../config/api';
+
+type Article = {
+  _id: string;
+  title: string;
+  slug: string;
+  category: string;
+  description: string;
+  content: string;
+  image?: string;
+  author?: string;
+  createdAt?: string;
+};
 
 const ArticlePage = () => {
   const { slug } = useParams<{ slug?: string }>();
-  const article = allArticles.find((entry) => entry.slug === slug) ?? allArticles[0];
+  const [article, setArticle] = useState<Article | null>(null);
+  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadArticle = async () => {
+      if (!slug) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(buildApiUrl(`/api/articles/${slug}`));
+        const data = await response.json();
+        if (data && !data.error) {
+          setArticle(data);
+          const relatedResponse = await fetch(buildApiUrl(`/api/articles?published=true&limit=4`));
+          const relatedData = await relatedResponse.json();
+          setRelatedArticles((Array.isArray(relatedData) ? relatedData : []).filter((entry: Article) => entry.slug !== slug).slice(0, 3));
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadArticle();
+  }, [slug]);
+
+  if (loading) {
+    return <div className="mx-auto max-w-7xl px-4 py-20 text-slate-400">Loading article…</div>;
+  }
 
   if (!article) {
     return <Navigate to="/" replace />;
   }
-
-  const relatedArticles = allArticles.filter((entry) => entry.slug !== article.slug).slice(0, 3);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
@@ -26,19 +69,15 @@ const ArticlePage = () => {
           </div>
           <h1 className="mt-5 text-4xl font-semibold text-white sm:text-5xl">{article.title}</h1>
           <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-slate-400">
-            <span>By {article.author}</span>
+            <span>By {article.author || 'Innovation X Lab'}</span>
             <span>•</span>
-            <span>{article.publishedAt}</span>
+            <span>{article.createdAt ? new Date(article.createdAt).toLocaleDateString() : 'Recently published'}</span>
             <span>•</span>
-            <span>{article.readingTime}</span>
+            <span>{Math.max(3, Math.ceil((article.content || '').split(/\s+/).length / 180))} min read</span>
           </div>
-          <img src={article.image} alt={article.title} className="mt-8 h-72 w-full rounded-[1.5rem] object-cover" />
+          {article.image ? <img src={article.image} alt={article.title} className="mt-8 h-72 w-full rounded-[1.5rem] object-cover" /> : null}
           <p className="mt-8 text-lg leading-8 text-slate-300">{article.description}</p>
-          {article.content.map((paragraph) => (
-            <p key={paragraph} className="mt-6 text-lg leading-8 text-slate-300">
-              {paragraph}
-            </p>
-          ))}
+          <div className="mt-6 whitespace-pre-line text-lg leading-8 text-slate-300">{article.content}</div>
           <div className="mt-8 flex flex-wrap gap-3">
             <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Twitter size={16} /></button>
             <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Facebook size={16} /></button>

@@ -5,16 +5,15 @@ import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { labSections } from './data/content';
 import HomePage from './pages/HomePage';
-import AiLabPage from './pages/AiLabPage';
-import GadgetLabPage from './pages/GadgetLabPage';
-import SoftwareLabPage from './pages/SoftwareLabPage';
-import CodeLabPage from './pages/CodeLabPage';
-import StartupLabPage from './pages/StartupLabPage';
 import ReviewPage from './pages/ReviewPage';
 import ArticlePage from './pages/ArticlePage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
 import AdminPage from './pages/AdminPage';
+import CategoryPage from './pages/CategoryPage';
+import SearchPage from './pages/SearchPage';
+import ReviewEditorPage from './pages/ReviewEditorPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -35,6 +34,8 @@ function App() {
     { name: 'Code Lab', href: '/code-lab' },
     { name: 'Startup Lab', href: '/startup-lab' },
     { name: 'Review', href: '/review' },
+    { name: 'Search', href: '/search' },
+    { name: 'Review Admin', href: '/admin/reviews' },
     { name: 'About', href: '/about' },
     { name: 'Contact', href: '/contact' },
     { name: 'Admin', href: '/admin' },
@@ -104,17 +105,20 @@ function App() {
       <main>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/ai-lab" element={<AiLabPage />} />
-          <Route path="/gadget-lab" element={<GadgetLabPage />} />
-          <Route path="/software-lab" element={<SoftwareLabPage />} />
-          <Route path="/code-lab" element={<CodeLabPage />} />
-          <Route path="/startup-lab" element={<StartupLabPage />} />
+          <Route path="/ai-lab" element={<CategoryPage category="AI Lab" />} />
+          <Route path="/gadget-lab" element={<CategoryPage category="Gadget Lab" />} />
+          <Route path="/software-lab" element={<CategoryPage category="Software Lab" />} />
+          <Route path="/code-lab" element={<CategoryPage category="Code Lab" />} />
+          <Route path="/startup-lab" element={<CategoryPage category="Startup Lab" />} />
           <Route path="/review" element={<ReviewPage />} />
           <Route path="/article" element={<ArticlePage />} />
           <Route path="/articles/:slug" element={<ArticlePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          <Route path="/admin/reviews" element={<ProtectedRoute><ReviewEditorPage /></ProtectedRoute>} />
+          <Route path="/search" element={<SearchPage />} />
         </Routes>
       </main>
 
