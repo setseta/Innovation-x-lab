@@ -198,20 +198,18 @@ const AdminPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
-      const data = await response.json().catch(() => ({}));
+      const data = await response.json();
       if (!response.ok || !data?.token) {
-        setAuthError(data?.error || `Login failed (${response.status})`);
+        setAuthError(data.error || 'Login failed');
         return;
       }
-
       localStorage.setItem('adminToken', data.token);
       setToken(data.token);
       setAuthError('');
       loadDashboard(data.token);
       navigate('/admin/dashboard', { replace: true });
     } catch (error) {
-      setAuthError('Unable to sign in right now. Please verify the backend URL and admin credentials.');
+      setAuthError('Unable to sign in right now.');
     }
   };
 
