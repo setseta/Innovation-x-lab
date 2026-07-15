@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { isAdvertisementActive } from './advertisementUtils.js';
+import { syncAdminAccount } from './adminBootstrap.js';
 import {
   PAYMENT_PROVIDERS,
   SUBSCRIPTION_STATUSES,
@@ -820,11 +821,7 @@ app.get('/api/admin/articles', authenticate, requireAdmin, async (_req, res) => 
 
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 }).then(async () => {
   console.log('MongoDB connected');
-  const existingAdmin = await User.findOne({ email: ADMIN_EMAIL.toLowerCase() });
-  if (!existingAdmin) {
-    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-    await User.create({ name: 'Admin', email: ADMIN_EMAIL.toLowerCase(), password: passwordHash, role: 'admin' });
-  }
+  await syncAdminAccount({ User, adminEmail: ADMIN_EMAIL, adminPassword: ADMIN_PASSWORD, logger: console });
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }).catch((error) => {
   console.error('MongoDB connection error', error);
