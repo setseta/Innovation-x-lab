@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage';
 import ReviewPage from './pages/ReviewPage';
 import ArticlePage from './pages/ArticlePage';
 import AboutPage from './pages/AboutPage';
+import AdvertisePage from './pages/AdvertisePage';
 import ContactPage from './pages/ContactPage';
 import AdminPage from './pages/AdminPage';
 import CategoryPage from './pages/CategoryPage';
@@ -38,6 +39,7 @@ function App() {
     { name: 'Review', href: '/review' },
     { name: 'Search', href: '/search' },
     { name: 'About', href: '/about' },
+    { name: 'Advertise', href: '/advertise' },
     { name: 'Membership', href: '/membership' },
     { name: 'Contact', href: '/contact' },
   ];
@@ -123,6 +125,7 @@ function App() {
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/admin/reviews" element={<ProtectedRoute><ReviewEditorPage /></ProtectedRoute>} />
           <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
+          <Route path="/advertise" element={<AdvertisePage />} />
           <Route path="/search" element={<SearchPage />} />
         </Routes>
       </main>
@@ -149,6 +152,9 @@ function App() {
               <li>hello@innovationxlab.com</li>
               <li>+1 (555) 014-7890</li>
               <li>Global HQ · Austin, TX</li>
+              <li>
+                <Link to="/advertise" className="transition hover:text-cyan-300">Advertise With Us</Link>
+              </li>
             </ul>
           </div>
           <div>
