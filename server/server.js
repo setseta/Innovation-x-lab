@@ -8,7 +8,6 @@ import multer from 'multer';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { v2 as cloudinary } from 'cloudinary';
-import nodemailer from 'nodemailer';
 import { isAdvertisementActive } from './advertisementUtils.js';
 import {
   PAYMENT_PROVIDERS,
@@ -33,12 +32,6 @@ const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || process.en
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-const EMAIL_FROM = process.env.EMAIL_FROM || 'no-reply@innovationxlab.com';
-const ADMIN_NOTIFICATION_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || ADMIN_EMAIL;
-const SMTP_HOST = process.env.SMTP_HOST || '';
-const SMTP_PORT = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587;
-const SMTP_USER = process.env.SMTP_USER || '';
-const SMTP_PASS = process.env.SMTP_PASS || '';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -110,28 +103,6 @@ const newsletterSchema = new mongoose.Schema({
   subscribedAt: { type: Date, default: Date.now },
 });
 
-const advertisingRequestSchema = new mongoose.Schema({
-  companyName: { type: String, required: true },
-  businessName: { type: String, required: true },
-  website: { type: String, default: '' },
-  industry: { type: String, default: '' },
-  email: { type: String, required: true, lowercase: true },
-  phone: { type: String, default: '' },
-  country: { type: String, default: '' },
-  objective: { type: String, default: '' },
-  advertisementType: { type: String, default: '' },
-  campaignTitle: { type: String, default: '' },
-  campaignDescription: { type: String, default: '' },
-  targetAudience: { type: String, default: '' },
-  startDate: { type: Date, default: null },
-  endDate: { type: Date, default: null },
-  budget: { type: String, default: '' },
-  mediaFile: { type: String, default: '' },
-  additionalNotes: { type: String, default: '' },
-  status: { type: String, enum: ['new', 'approved', 'rejected', 'contacted', 'live', 'completed', 'archived'], default: 'new' },
-  submittedAt: { type: Date, default: Date.now },
-});
-
 const paymentHistorySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   amount: { type: Number, required: true },
@@ -162,7 +133,6 @@ const User = mongoose.model('User', userSchema);
 const Article = mongoose.model('Article', articleSchema);
 const Review = mongoose.model('Review', reviewSchema);
 const Newsletter = mongoose.model('Newsletter', newsletterSchema);
-const AdvertisingRequest = mongoose.model('AdvertisingRequest', advertisingRequestSchema);
 const PaymentHistory = mongoose.model('PaymentHistory', paymentHistorySchema);
 const Advertisement = mongoose.model('Advertisement', advertisementSchema);
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
@@ -242,78 +212,6 @@ app.post('/api/auth/login', async (req, res) => {
       newsletterPreference: user.newsletterPreference,
     },
   });
-});
-
-app.post('/api/advertising-requests', upload.single('mediaFile'), async (req, res) => {
-  const {
-    companyName,
-    businessName,
-    website,
-    industry,
-    email,
-    phone,
-    country,
-    objective,
-    advertisementType,
-    campaignTitle,
-    campaignDescription,
-    targetAudience,
-    startDate,
-    endDate,
-    budget,
-    additionalNotes,
-  } = req.body;
-
-  if (!companyName || !businessName || !email || !objective || !advertisementType || !campaignTitle || !campaignDescription || !targetAudience || !startDate || !endDate || !budget) {
-    return res.status(400).json({ error: 'Please complete all required fields.' });
-  }
-
-  try {
-    const mediaFileUrl = req.file ? await uploadMedia(req.file) : '';
-    const request = await AdvertisingRequest.create({
-      companyName,
-      businessName,
-      website: website || '',
-      industry: industry || '',
-      email: String(email).toLowerCase(),
-      phone: phone || '',
-      country: country || '',
-      objective: objective || '',
-      advertisementType: advertisementType || '',
-      campaignTitle: campaignTitle || '',
-      campaignDescription: campaignDescription || '',
-      targetAudience: targetAudience || '',
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
-      budget: budget || '',
-      mediaFile: mediaFileUrl,
-      additionalNotes: additionalNotes || '',
-    });
-
-    const confirmationText = `Thank you for your interest in advertising with Innovation X Lab. Our team will review your request and contact you shortly to discuss the campaign.`;
-    const confirmationHtml = `<p>Thank you for your interest in advertising with <strong>Innovation X Lab</strong>.</p><p>Our team will review your request and contact you shortly to discuss the campaign.</p>`;
-
-    await sendEmail({
-      to: request.email,
-      subject: "We've Received Your Advertising Request",
-      text: confirmationText,
-      html: confirmationHtml,
-    });
-
-    if (ADMIN_NOTIFICATION_EMAIL) {
-      await sendEmail({
-        to: ADMIN_NOTIFICATION_EMAIL,
-        subject: 'New advertising request received',
-        text: `New advertising request submitted by ${request.companyName} (${request.email}).`,
-        html: `<p>New advertising request submitted by <strong>${request.companyName}</strong> (${request.email}).</p><p>Visit the admin dashboard to review the request.</p>`,
-      });
-    }
-
-    res.status(201).json({ success: true, request });
-  } catch (error) {
-    console.error('Advertising request creation error', error);
-    res.status(500).json({ error: 'Failed to submit advertising request.' });
-  }
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -520,43 +418,6 @@ app.post('/api/upload', authenticate, requireAdmin, upload.single('image'), asyn
 
 const escapeRegExp = (value) => value.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const createEmailTransporter = () => {
-  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-    return nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-    });
-  }
-  return null;
-};
-
-const sendEmail = async ({ to, subject, html, text }) => {
-  const transporter = createEmailTransporter();
-  if (!transporter) {
-    console.log('Email not sent. Missing SMTP configuration.');
-    console.log({ to, subject, text, html });
-    return;
-  }
-  await transporter.sendMail({ from: EMAIL_FROM, to, subject, html, text });
-};
-
-const uploadMedia = async (file) => {
-  if (!file) return '';
-  const result = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ folder: 'innovation-x-lab/advertising-requests' }, (error, result) => {
-      if (error) reject(error);
-      else resolve(result);
-    });
-    stream.end(file.buffer);
-  });
-  return result.secure_url;
-};
-
 app.get('/api/reviews', async (_req, res) => {
   const reviews = await Review.find().sort({ createdAt: -1 }).lean();
   res.json(reviews);
@@ -641,28 +502,6 @@ app.get('/api/admin/advertisements', authenticate, requireAdmin, async (_req, re
     ...advertisement,
     status: isAdvertisementActive(advertisement) ? 'Active' : 'Expired or inactive',
   })));
-});
-
-app.get('/api/admin/advertising-requests', authenticate, requireAdmin, async (_req, res) => {
-  const requests = await AdvertisingRequest.find().sort({ submittedAt: -1 }).lean();
-  res.json(requests);
-});
-
-app.put('/api/admin/advertising-requests/:id', authenticate, requireAdmin, async (req, res) => {
-  const { status } = req.body;
-  const allowedStatuses = ['new', 'approved', 'rejected', 'contacted', 'live', 'completed', 'archived'];
-  if (!status || !allowedStatuses.includes(status)) {
-    return res.status(400).json({ error: 'Invalid status update.' });
-  }
-
-  const request = await AdvertisingRequest.findById(req.params.id);
-  if (!request) {
-    return res.status(404).json({ error: 'Advertising request not found.' });
-  }
-
-  request.status = status;
-  await request.save();
-  res.json({ success: true, request });
 });
 
 app.post('/api/admin/advertisements', authenticate, requireAdmin, async (req, res) => {

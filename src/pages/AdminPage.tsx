@@ -48,29 +48,6 @@ type MemberRecord = {
   createdAt?: string;
 };
 
-type AdvertisingRequest = {
-  _id: string;
-  companyName: string;
-  businessName: string;
-  website?: string;
-  industry?: string;
-  email: string;
-  phone?: string;
-  country?: string;
-  objective: string;
-  advertisementType: string;
-  campaignTitle: string;
-  campaignDescription: string;
-  targetAudience: string;
-  startDate?: string;
-  endDate?: string;
-  budget: string;
-  mediaFile?: string;
-  additionalNotes?: string;
-  status: string;
-  submittedAt?: string;
-};
-
 type MembershipSummary = {
   totalMembers: number;
   freeSubscribers: number;
@@ -114,7 +91,6 @@ const AdminPage = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
-  const [advertisingRequests, setAdvertisingRequests] = useState<AdvertisingRequest[]>([]);
   const [form, setForm] = useState<AdminForm>({ title: '', slug: '', category: 'AI Lab', description: '', content: '', image: '', author: 'Innovation X Lab', tags: '', seoTitle: '', seoDescription: '', published: false });
   const [adForm, setAdForm] = useState({
     title: '',
@@ -147,13 +123,12 @@ const AdminPage = () => {
 
   const loadDashboard = async (currentToken: string) => {
     const headers = { Authorization: `Bearer ${currentToken}` };
-    const [statsResponse, articlesResponse, subscribersResponse, advertisementsResponse, membershipsResponse, advertisingRequestsResponse] = await Promise.all([
+    const [statsResponse, articlesResponse, subscribersResponse, advertisementsResponse, membershipsResponse] = await Promise.all([
       fetch(buildApiUrl('/api/admin/stats'), { headers }),
       fetch(buildApiUrl('/api/admin/articles'), { headers }),
       fetch(buildApiUrl('/api/admin/newsletters'), { headers }),
       fetch(buildApiUrl('/api/admin/advertisements'), { headers }),
       fetch(buildApiUrl('/api/admin/memberships'), { headers }),
-      fetch(buildApiUrl('/api/admin/advertising-requests'), { headers }),
     ]);
     if (statsResponse.ok) {
       const statsData = await statsResponse.json();
@@ -174,10 +149,6 @@ const AdminPage = () => {
     if (membershipsResponse.ok) {
       const membershipsData = await membershipsResponse.json();
       setMembershipData(membershipsData);
-    }
-    if (advertisingRequestsResponse.ok) {
-      const requestsData = await advertisingRequestsResponse.json();
-      setAdvertisingRequests(Array.isArray(requestsData) ? requestsData : []);
     }
   };
 
@@ -374,24 +345,6 @@ const AdminPage = () => {
     }
   };
 
-  const requestStatusCounts = useMemo(() => advertisingRequests.reduce((counts, request) => {
-    counts[request.status] = (counts[request.status] || 0) + 1;
-    return counts;
-  }, {} as Record<string, number>), [advertisingRequests]);
-
-  const handleAdvertisingRequestStatus = async (id: string, status: string) => {
-    if (!token) return;
-    const response = await fetch(buildApiUrl(`/api/admin/advertising-requests/${id}`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status }),
-    });
-    if (response.ok) {
-      loadDashboard(token);
-      setStatus('Advertising request status updated.');
-    }
-  };
-
   const overviewCards = useMemo(() => [
     { label: 'Total articles', value: stats.totalArticles },
     { label: 'Total views', value: stats.totalViews },
@@ -539,70 +492,6 @@ const AdminPage = () => {
                   )) : <p>No payment history yet.</p>}
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
-            <h2 className="text-2xl font-semibold text-white">Advertising Requests</h2>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {['new', 'approved', 'rejected', 'contacted', 'live', 'completed'].map((statusKey) => (
-                <div key={statusKey} className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-sm uppercase tracking-[0.24em] text-slate-400">{statusKey.replace(/\b\w/g, (char) => char.toUpperCase())}</div>
-                  <div className="mt-3 text-3xl font-semibold text-white">{requestStatusCounts[statusKey] || 0}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-8 space-y-4">
-              {advertisingRequests.length === 0 ? (
-                <p className="text-slate-400">No advertising requests have been submitted yet.</p>
-              ) : advertisingRequests.map((request) => (
-                <div key={request._id} className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="text-lg font-semibold text-white">{request.companyName}</div>
-                      <div className="mt-1 text-sm text-slate-400">{request.campaignTitle}</div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs uppercase tracking-[0.2em] text-cyan-300">
-                        <span>{request.advertisementType}</span>
-                        <span>{request.budget}</span>
-                        <span>{request.status}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-right text-sm text-slate-400">
-                      <div>{request.email}</div>
-                      <div>{request.phone || 'No phone provided'}</div>
-                      <div>{request.country}</div>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-3xl border border-white/10 bg-slate-950/80 p-4">
-                      <div className="text-sm uppercase tracking-[0.24em] text-slate-400">Objective</div>
-                      <p className="mt-2 text-sm text-slate-200">{request.objective}</p>
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-slate-950/80 p-4">
-                      <div className="text-sm uppercase tracking-[0.24em] text-slate-400">Target Audience</div>
-                      <p className="mt-2 text-sm text-slate-200">{request.targetAudience}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-3xl border border-white/10 bg-slate-950/80 p-4">
-                      <div className="text-sm uppercase tracking-[0.24em] text-slate-400">Dates</div>
-                      <p className="mt-2 text-sm text-slate-200">{request.startDate ? new Date(request.startDate).toLocaleDateString() : '—'} - {request.endDate ? new Date(request.endDate).toLocaleDateString() : '—'}</p>
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-slate-950/80 p-4">
-                      <div className="text-sm uppercase tracking-[0.24em] text-slate-400">Website</div>
-                      <p className="mt-2 text-sm text-cyan-300 break-all">{request.website || 'Not provided'}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 text-sm text-slate-300">{request.campaignDescription}</div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {['approved', 'rejected', 'contacted', 'live', 'completed', 'archived'].map((statusKey) => (
-                      <button key={statusKey} type="button" onClick={() => handleAdvertisingRequestStatus(request._id, statusKey)} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-200 transition hover:bg-cyan-500/10">
-                        {statusKey.replace(/\b\w/g, (char) => char.toUpperCase())}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
