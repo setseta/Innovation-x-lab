@@ -28,15 +28,15 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.MONGO_URL;
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/innovationxlab';
+const JWT_SECRET = process.env.JWT_SECRET || 'innovationxlab-secret';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@innovationxlab.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin123456';
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'e4cjpp5k',
+  api_key: process.env.CLOUDINARY_API_KEY || '487174522247335',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'hOdi_Gf__tSbe6T22egIihrekcI',
 });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -808,47 +808,15 @@ app.get('/api/admin/articles', authenticate, requireAdmin, async (_req, res) => 
   res.json(articles);
 });
 
-if (!MONGO_URI) {
-  console.error('Missing MongoDB connection string. Set MONGO_URI (or MONGODB_URI / DATABASE_URL).');
-  process.exit(1);
-}
-
-// Mongoose connection event handlers — exit on errors/disconnect to enforce DB requirement
-mongoose.connection.on('connected', () => {
-  console.log('Mongoose connected');
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('Mongoose reconnected');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('Mongoose connection error', err);
-  console.error('Exiting because a persistent DB error occurred');
-  process.exit(1);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.error('Mongoose disconnected');
-  console.error('Exiting because the database connection was lost');
-  process.exit(1);
-});
-
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 }).then(async () => {
   console.log('MongoDB connected');
-  if (ADMIN_EMAIL && ADMIN_PASSWORD) {
-    const existingAdmin = await User.findOne({ email: ADMIN_EMAIL.toLowerCase() });
-    if (!existingAdmin) {
-      const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-      await User.create({ name: 'Admin', email: ADMIN_EMAIL.toLowerCase(), password: passwordHash, role: 'admin' });
-      console.log('Admin user created');
-    }
-  } else {
-    console.warn('ADMIN_EMAIL or ADMIN_PASSWORD not set; skipping admin auto-creation');
+  const existingAdmin = await User.findOne({ email: ADMIN_EMAIL.toLowerCase() });
+  if (!existingAdmin) {
+    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+    await User.create({ name: 'Admin', email: ADMIN_EMAIL.toLowerCase(), password: passwordHash, role: 'admin' });
   }
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }).catch((error) => {
   console.error('MongoDB connection error', error);
-  console.error('Exiting process because the database is required for this server to run.');
-  process.exit(1);
+  app.listen(PORT, () => console.log(`Server running on port ${PORT} without DB`));
 });
