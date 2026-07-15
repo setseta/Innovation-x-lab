@@ -815,5 +815,5 @@ mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 }).then(async () =>
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }).catch((error) => {
   console.error('MongoDB connection error', error);
-  app.listen(PORT, () => console.log(`Server running on port ${PORT} without DB`));
+  process.exit(1);
 });
