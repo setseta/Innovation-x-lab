@@ -3,6 +3,7 @@ server/node_modules/
 dist/
 .vite/
 .env
+server/.env
 .env.local
 .env.*.local
 *.log

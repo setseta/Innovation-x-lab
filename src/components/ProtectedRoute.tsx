@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { buildApiUrl } from '../config/api';
 
 type ProtectedRouteProps = {
@@ -8,6 +8,7 @@ type ProtectedRouteProps = {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -21,7 +22,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         const response = await fetch(buildApiUrl('/api/auth/me'), {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setAuthorized(response.ok);
+        const data = await response.json().catch(() => ({}));
+        setAuthorized(response.ok && data?.user?.role === 'admin');
       } catch (error) {
         setAuthorized(false);
       }
@@ -35,7 +37,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!authorized) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/admin/login" replace state={{ from: location }} />;
   }
 
   return children;

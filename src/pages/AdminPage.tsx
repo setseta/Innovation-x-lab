@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { buildApiUrl } from '../config/api';
 
@@ -84,6 +85,7 @@ type Stats = {
 };
 
 const AdminPage = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({ totalArticles: 0, totalViews: 0, totalSubscribers: 0, totalReviews: 0, recentPosts: [] });
   const [membershipData, setMembershipData] = useState<MembershipSummary | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -113,8 +115,11 @@ const AdminPage = () => {
     if (storedToken) {
       setToken(storedToken);
       loadDashboard(storedToken);
+      if (window.location.pathname === '/admin/login') {
+        navigate('/admin/dashboard', { replace: true });
+      }
     }
-  }, []);
+  }, [navigate]);
 
   const loadDashboard = async (currentToken: string) => {
     const headers = { Authorization: `Bearer ${currentToken}` };
@@ -167,6 +172,7 @@ const AdminPage = () => {
       setToken(data.token);
       setAuthError('');
       loadDashboard(data.token);
+      navigate('/admin/dashboard', { replace: true });
     } catch (error) {
       setAuthError('Unable to sign in right now.');
     }
@@ -179,6 +185,7 @@ const AdminPage = () => {
     setArticles([]);
     setSubscribers([]);
     setAdvertisements([]);
+    navigate('/admin/login', { replace: true });
   };
 
   const handleCreateArticle = async (event: React.FormEvent) => {
