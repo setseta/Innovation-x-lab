@@ -129,6 +129,8 @@ const AdminPage = () => {
   });
   const [token, setToken] = useState('');
   const [authError, setAuthError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -183,8 +185,12 @@ const AdminPage = () => {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
-    const email = (document.getElementById('admin-email') as HTMLInputElement)?.value || '';
-    const password = (document.getElementById('admin-password') as HTMLInputElement)?.value || '';
+    setAuthError('');
+
+    if (!email || !password) {
+      setAuthError('Email and password are required');
+      return;
+    }
 
     try {
       const response = await fetch(buildApiUrl('/api/auth/login'), {
@@ -193,7 +199,7 @@ const AdminPage = () => {
         body: JSON.stringify({ email, password }),
       });
       const data = await response.json();
-      if (!response.ok) {
+      if (!response.ok || !data?.token) {
         setAuthError(data.error || 'Login failed');
         return;
       }
@@ -417,8 +423,21 @@ const AdminPage = () => {
           <h2 className="text-2xl font-semibold text-white">Admin Login</h2>
           <p className="mt-3 text-sm text-slate-400">Sign in to manage articles, reviews, and newsletter subscribers.</p>
           <div className="mt-6 space-y-4">
-            <input id="admin-email" className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Email" />
-            <input id="admin-password" type="password" className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Password" />
+            <input
+              id="admin-email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none"
+              placeholder="Email"
+            />
+            <input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none"
+              placeholder="Password"
+            />
           </div>
           {authError ? <p className="mt-4 text-sm text-rose-400">{authError}</p> : null}
           <button type="submit" className="mt-6 rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white">Login</button>

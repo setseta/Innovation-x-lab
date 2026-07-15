@@ -1,4 +1,4 @@
-const defaultApiBaseUrl = '';
+const defaultApiBaseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
 export const apiBaseUrl = import.meta.env.VITE_API_URL || defaultApiBaseUrl;
 
