@@ -1,4 +1,4 @@
-import { Route, Routes, Link, Navigate } from 'react-router-dom';
+import { Route, Routes, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowUp, Menu, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -37,9 +37,11 @@ function App() {
     { name: 'Startup Lab', href: '/startup-lab' },
     { name: 'Review', href: '/review' },
     { name: 'Search', href: '/search' },
+    { name: 'Review Admin', href: '/admin/reviews' },
     { name: 'About', href: '/about' },
     { name: 'Membership', href: '/membership' },
     { name: 'Contact', href: '/contact' },
+    { name: 'Admin', href: '/admin' },
   ];
 
   useEffect(() => {
@@ -118,11 +120,9 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/membership" element={<MembershipPage />} />
           <Route path="/membership/:plan" element={<MembershipDetailsPage />} />
-          <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
-          <Route path="/admin/login" element={<AdminPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/admin/reviews" element={<ProtectedRoute><ReviewEditorPage /></ProtectedRoute>} />
-          <Route path="/admin/*" element={<Navigate to="/admin/login" replace />} />
           <Route path="/search" element={<SearchPage />} />
         </Routes>
       </main>

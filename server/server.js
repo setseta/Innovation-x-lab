@@ -5,8 +5,6 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import { v2 as cloudinary } from 'cloudinary';
 import { isAdvertisementActive } from './advertisementUtils.js';
 import {
@@ -19,8 +17,7 @@ import {
   isPremiumAccessAllowed,
 } from './subscriptionUtils.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, '.env') });
+dotenv.config();
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
