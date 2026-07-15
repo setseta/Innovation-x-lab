@@ -39,6 +39,19 @@ cloudinary.config({
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const normalizeEmail = (email) => String(email || '').toLowerCase().trim();
+const requireDatabase = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database temporarily unavailable. Please try again later.' });
+  }
+  next();
+};
+
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') {
+    return next();
+  }
+  return requireDatabase(req, res, next);
+});
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -815,5 +828,5 @@ mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 }).then(async () =>
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }).catch((error) => {
   console.error('MongoDB connection error', error);
-  process.exit(1);
+  app.listen(PORT, () => console.log(`Server running on port ${PORT} (database unavailable)`));
 });
