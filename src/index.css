@@ -5,20 +5,30 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family: 'Sora', 'Inter', 'Segoe UI', 'Avenir Next', system-ui, sans-serif;
-  background-color: #050816;
-  color: #f8fafc;
+  background-color: #ffffff;
+  color: #111827;
 }
 
 html {
   scroll-behavior: smooth;
 }
 
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  background: #ffffff;
+  color: #111827;
+}
+
+html[data-theme='dark'] body {
   background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 24%), #050816;
+  color: #f8fafc;
 }
 
 * {
@@ -26,6 +36,107 @@ body {
 }
 
 ::selection {
-  background: rgba(124, 58, 237, 0.45);
-  color: white;
+  background: rgba(37, 99, 235, 0.25);
+  color: #111827;
+}
+
+html[data-theme='light'] body {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.05), transparent 18%),
+    linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  color: #111827;
+}
+
+html[data-theme='light'] [class*='bg-slate-900'],
+html[data-theme='light'] [class*='bg-slate-950'],
+html[data-theme='light'] [class*='bg-midnight'],
+html[data-theme='light'] [class*='bg-[#070d1d]'],
+html[data-theme='light'] [class*='bg-[#030712]'] {
+  background-color: #ffffff !important;
+}
+
+html[data-theme='light'] [class*='bg-slate-50'],
+html[data-theme='light'] [class*='bg-slate-100'],
+html[data-theme='light'] [class*='bg-slate-200'],
+html[data-theme='light'] [class*='bg-white/5'],
+html[data-theme='light'] [class*='bg-white/10'],
+html[data-theme='light'] [class*='bg-white/15'],
+html[data-theme='light'] [class*='bg-white/20'],
+html[data-theme='light'] [class*='bg-cyan-500/10'],
+html[data-theme='light'] [class*='bg-violet-500/10'],
+html[data-theme='light'] [class*='bg-gradient-to-'] {
+  background-color: #fafafa !important;
+  background-image: none !important;
+}
+
+html[data-theme='light'] .border-white\/10,
+html[data-theme='light'] .border-white\/15,
+html[data-theme='light'] .border-white\/20,
+html[data-theme='light'] .border-cyan-400\/20,
+html[data-theme='light'] .border-violet-400\/20,
+html[data-theme='light'] .border-slate-200,
+html[data-theme='light'] .border-slate-300 {
+  border-color: #e5e7eb !important;
+}
+
+html[data-theme='light'] .text-white,
+html[data-theme='light'] .text-slate-100,
+html[data-theme='light'] .text-slate-200,
+html[data-theme='light'] .text-slate-300,
+html[data-theme='light'] .text-slate-400,
+html[data-theme='light'] .text-slate-500,
+html[data-theme='light'] .text-slate-600,
+html[data-theme='light'] .text-slate-700,
+html[data-theme='light'] .text-slate-800,
+html[data-theme='light'] .text-slate-900,
+html[data-theme='light'] .text-slate-50 {
+  color: #111827 !important;
+}
+
+html[data-theme='light'] .text-slate-600,
+html[data-theme='light'] .text-slate-700 {
+  color: #6b7280 !important;
+}
+
+html[data-theme='light'] .text-slate-400,
+html[data-theme='light'] .text-slate-500 {
+  color: #9ca3af !important;
+}
+
+html[data-theme='light'] .text-cyan-300,
+html[data-theme='light'] .text-cyan-200,
+html[data-theme='light'] .text-violet-200,
+html[data-theme='light'] .text-violet-300,
+html[data-theme='light'] .text-cyan-400 {
+  color: #2563eb !important;
+}
+
+html[data-theme='light'] .bg-gradient-to-r.from-cyan-500.to-violet-600,
+html[data-theme='light'] .bg-gradient-to-r.from-cyan-500.to-violet-600.text-white {
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%) !important;
+}
+
+html[data-theme='light'] [class*='hover:bg-white/5']:hover,
+html[data-theme='light'] [class*='hover:bg-white/10']:hover,
+html[data-theme='light'] [class*='hover:bg-cyan-500/10']:hover,
+html[data-theme='light'] [class*='hover:bg-violet-500/10']:hover,
+html[data-theme='light'] [class*='hover:border-cyan-400/30']:hover,
+html[data-theme='light'] [class*='hover:text-cyan-300']:hover {
+  background-color: #f3f4f6 !important;
+  color: #2563eb !important;
+}
+
+html[data-theme='light'] input,
+html[data-theme='light'] textarea,
+html[data-theme='light'] select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+html[data-theme='light'] .shadow-glow,
+html[data-theme='light'] [class*='shadow-[0_0_35px_rgba(14,165,233,0.08)'],
+html[data-theme='light'] [class*='shadow-[0_0_45px_rgba(34,211,238,0.12)'],
+html[data-theme='light'] [class*='shadow-[0_0_0_1px_rgba(255,255,255,0.03)'] {
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08) !important;
 }

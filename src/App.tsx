@@ -21,7 +21,14 @@ import ProtectedRoute from './components/ProtectedRoute';
 function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window === 'undefined') {
+      return 'light';
+    }
+
+    const storedTheme = window.localStorage.getItem('ixl-theme');
+    return storedTheme === 'dark' ? 'dark' : 'light';
+  });
   const [desktopMenuOpen, setDesktopMenuOpen] = useState<string | null>(null);
   const [mobileMenuSection, setMobileMenuSection] = useState<string | null>(null);
 
@@ -32,7 +39,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    document.body.style.backgroundColor = theme === 'dark' ? '#050816' : '#f8fafc';
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('ixl-theme', theme);
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.style.backgroundColor = theme === 'dark' ? '#050816' : '#ffffff';
+    document.body.style.color = theme === 'dark' ? '#f8fafc' : '#111827';
   }, [theme]);
 
   const menuSections = useMemo(() => [
@@ -89,7 +101,7 @@ function App() {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-midnight text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen ${isDark ? 'bg-midnight text-slate-100' : 'bg-white text-slate-900'}`}>
       <Helmet>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -97,30 +109,30 @@ function App() {
         <meta name="description" content="A premium technology platform exploring AI, gadgets, software, coding, startups, and product reviews." />
       </Helmet>
 
-      <header className={`sticky top-0 z-50 border-b backdrop-blur-xl ${isDark ? 'border-white/10 bg-midnight/80' : 'border-slate-200 bg-white/80'}`}>
+      <header className={`sticky top-0 z-50 border-b backdrop-blur-xl ${isDark ? 'border-white/10 bg-midnight/80' : 'border-slate-200 bg-white/95'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link to="/" onClick={() => setMobileNavOpen(false)} className={`group flex items-center whitespace-nowrap text-[0.65rem] font-semibold uppercase tracking-[0.28em] sm:text-[0.78rem] lg:text-[0.92rem] ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            <span className="mr-2 text-white transition duration-300 group-hover:text-slate-100">INNOVATION</span>
+            <span className={`mr-2 transition duration-300 ${isDark ? 'text-white group-hover:text-slate-100' : 'text-slate-900 group-hover:text-slate-700'}`}>INNOVATION</span>
             <motion.span whileHover={{ scale: 1.08, rotate: -2, filter: 'brightness(1.2)' }} transition={{ type: 'spring', stiffness: 280, damping: 18 }} className="relative mx-1 inline-flex items-center bg-gradient-to-r from-cyan-400 via-sky-300 to-violet-500 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(34,211,238,0.35)]">
               <span className="absolute inset-0 blur-[0.6px] text-cyan-300/40">X</span>
               <span className="relative">X</span>
             </motion.span>
-            <span className={`ml-2 text-white/75 transition duration-300 group-hover:text-white/90 ${isDark ? 'text-slate-200/90' : 'text-slate-600'}`}>LAB</span>
+            <span className={`ml-2 transition duration-300 ${isDark ? 'text-white/75 group-hover:text-white/90' : 'text-slate-900 group-hover:text-slate-700'}`}>LAB</span>
           </Link>
 
           <nav className="hidden flex-1 items-center justify-center gap-3 lg:flex">
-            <Link to="/" className={`rounded-full px-3 py-2 text-sm transition hover:text-cyan-300 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Home</Link>
+            <Link to="/" className={`rounded-full px-3 py-2 text-sm transition ${isDark ? 'text-slate-200 hover:text-cyan-300' : 'text-slate-700 hover:bg-slate-100 hover:text-blue-600'}`}>Home</Link>
 
             {menuSections.map((section) => (
               <div key={section.label} className="relative" onMouseEnter={() => setDesktopMenuOpen(section.label)} onMouseLeave={() => setDesktopMenuOpen(null)}>
-                <button type="button" onClick={() => setDesktopMenuOpen((prev) => (prev === section.label ? null : section.label))} className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm transition hover:text-cyan-300 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                <button type="button" onClick={() => setDesktopMenuOpen((prev) => (prev === section.label ? null : section.label))} className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm transition ${isDark ? 'text-slate-200 hover:text-cyan-300' : 'text-slate-700 hover:bg-slate-100 hover:text-blue-600'}`}>
                   {section.label}
                   <ChevronDown size={16} />
                 </button>
 
                 <AnimatePresence>
                   {desktopMenuOpen === section.label && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.18 }} className={`absolute left-0 top-full mt-3 min-w-[220px] rounded-[1.25rem] border p-3 shadow-2xl backdrop-blur-xl ${isDark ? 'border-white/10 bg-slate-950/95' : 'border-slate-200 bg-white/95'}`}>
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.18 }} className={`absolute left-0 top-full mt-3 min-w-[220px] rounded-[1.25rem] border p-3 shadow-2xl backdrop-blur-xl ${isDark ? 'border-white/10 bg-slate-950/95' : 'border-slate-200 bg-white/95 shadow-[0_12px_32px_rgba(17,24,39,0.08)]'}`}>
                       <div className="space-y-2">
                         {section.items.map((item) => (
                           <Link key={item.label} to={item.href} className={`block rounded-full px-3 py-2 text-sm transition ${isDark ? 'text-slate-200 hover:bg-white/5 hover:text-cyan-300' : 'text-slate-700 hover:bg-slate-100 hover:text-cyan-600'}`}>
@@ -134,7 +146,7 @@ function App() {
               </div>
             ))}
 
-            <Link to="/advertise" className={`rounded-full px-3 py-2 text-sm font-medium transition hover:text-cyan-300 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Advertise</Link>
+            <Link to="/advertise" className={`rounded-full px-3 py-2 text-sm font-medium transition ${isDark ? 'text-slate-200 hover:text-cyan-300' : 'text-slate-700 hover:bg-slate-100 hover:text-blue-600'}`}>Advertise</Link>
 
             <Link to="/search" className={`rounded-full border p-2 ${isDark ? 'border-white/10 text-slate-200' : 'border-slate-200 text-slate-700'}`} aria-label="Search">
               <Search size={18} />
@@ -218,7 +230,7 @@ function App() {
         </Routes>
       </main>
 
-      <footer className={`border-t ${isDark ? 'border-white/10 bg-[#030712]' : 'border-slate-200 bg-slate-100'}`}>
+      <footer className={`border-t ${isDark ? 'border-white/10 bg-[#030712]' : 'border-slate-200 bg-white'}`}>
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-4 lg:px-8">
           <div>
             <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Innovation X Lab</h3>
