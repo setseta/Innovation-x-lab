@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { buildApiUrl } from '../config/api';
 
@@ -72,6 +73,29 @@ type Advertisement = {
   status?: string;
 };
 
+type AdvertisingRequest = {
+  _id: string;
+  companyName: string;
+  businessName: string;
+  website?: string;
+  industry: string;
+  email: string;
+  phone?: string;
+  country: string;
+  objective: string;
+  advertisementType: string;
+  campaignTitle: string;
+  campaignDescription: string;
+  targetAudience: string;
+  startDate?: string;
+  endDate?: string;
+  budget: string;
+  mediaFile?: string;
+  additionalNotes?: string;
+  status: string;
+  submittedAt?: string;
+};
+
 type Stats = {
   totalArticles: number;
   totalViews: number;
@@ -84,11 +108,14 @@ type Stats = {
 };
 
 const AdminPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [stats, setStats] = useState<Stats>({ totalArticles: 0, totalViews: 0, totalSubscribers: 0, totalReviews: 0, recentPosts: [] });
   const [membershipData, setMembershipData] = useState<MembershipSummary | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
+  const [advertisingRequests, setAdvertisingRequests] = useState<AdvertisingRequest[]>([]);
   const [form, setForm] = useState<AdminForm>({ title: '', slug: '', category: 'AI Lab', description: '', content: '', image: '', author: 'Innovation X Lab', tags: '', seoTitle: '', seoDescription: '', published: false });
   const [adForm, setAdForm] = useState({
     title: '',
@@ -109,20 +136,24 @@ const AdminPage = () => {
   const [uploadingAdImage, setUploadingAdImage] = useState(false);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('adminToken');
+    const storedToken = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
     if (storedToken) {
       setToken(storedToken);
       loadDashboard(storedToken);
+      if (location.pathname === '/admin/login') {
+        navigate('/admin/dashboard', { replace: true });
+      }
     }
-  }, []);
+  }, [location.pathname, navigate]);
 
   const loadDashboard = async (currentToken: string) => {
     const headers = { Authorization: `Bearer ${currentToken}` };
-    const [statsResponse, articlesResponse, subscribersResponse, advertisementsResponse, membershipsResponse] = await Promise.all([
+    const [statsResponse, articlesResponse, subscribersResponse, advertisementsResponse, advertisingRequestsResponse, membershipsResponse] = await Promise.all([
       fetch(buildApiUrl('/api/admin/stats'), { headers }),
       fetch(buildApiUrl('/api/admin/articles'), { headers }),
       fetch(buildApiUrl('/api/admin/newsletters'), { headers }),
       fetch(buildApiUrl('/api/admin/advertisements'), { headers }),
+      fetch(buildApiUrl('/api/admin/advertising-requests'), { headers }),
       fetch(buildApiUrl('/api/admin/memberships'), { headers }),
     ]);
     if (statsResponse.ok) {
@@ -140,6 +171,10 @@ const AdminPage = () => {
     if (advertisementsResponse.ok) {
       const advertisementsData = await advertisementsResponse.json();
       setAdvertisements(Array.isArray(advertisementsData) ? advertisementsData : []);
+    }
+    if (advertisingRequestsResponse.ok) {
+      const advertisingRequestsData = await advertisingRequestsResponse.json();
+      setAdvertisingRequests(Array.isArray(advertisingRequestsData) ? advertisingRequestsData : []);
     }
     if (membershipsResponse.ok) {
       const membershipsData = await membershipsResponse.json();
@@ -164,9 +199,11 @@ const AdminPage = () => {
         return;
       }
       localStorage.setItem('adminToken', data.token);
+      sessionStorage.setItem('adminToken', data.token);
       setToken(data.token);
       setAuthError('');
       loadDashboard(data.token);
+      navigate('/admin/dashboard', { replace: true });
     } catch (error) {
       setAuthError('Unable to sign in right now.');
     }
@@ -174,11 +211,16 @@ const AdminPage = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
+    sessionStorage.removeItem('adminToken');
     setToken('');
     setStats({ totalArticles: 0, totalViews: 0, totalSubscribers: 0, totalReviews: 0, recentPosts: [] });
     setArticles([]);
     setSubscribers([]);
     setAdvertisements([]);
+    setAdvertisingRequests([]);
+    navigate('/admin/login', { replace: true });
+    window.history.replaceState(null, '', '/admin/login');
+    window.location.replace('/admin/login');
   };
 
   const handleCreateArticle = async (event: React.FormEvent) => {
@@ -346,6 +388,33 @@ const AdminPage = () => {
     { label: 'Premium subscribers', value: stats.premiumMembers ?? membershipData?.premiumSubscribers ?? 0 },
   ], [stats, membershipData]);
 
+  const advertisingRequestCounts = useMemo(() => ({
+    newRequests: advertisingRequests.filter((request) => request.status === 'new').length,
+    approvedCampaigns: advertisingRequests.filter((request) => request.status === 'approved' || request.status === 'campaign-live').length,
+    rejectedRequests: advertisingRequests.filter((request) => request.status === 'rejected').length,
+    completedCampaigns: advertisingRequests.filter((request) => request.status === 'completed').length,
+  }), [advertisingRequests]);
+
+  const handleAdvertisingStatusUpdate = async (id: string, status: string) => {
+    if (!token) return;
+    const response = await fetch(buildApiUrl(`/api/admin/advertising-requests/${id}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      loadDashboard(token);
+      setStatus(`Advertising request marked as ${status}.`);
+    } else {
+      setStatus(data.error || 'Unable to update advertising request.');
+    }
+  };
+
+  if (token && location.pathname === '/admin/login') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <Helmet>
@@ -382,6 +451,25 @@ const AdminPage = () => {
                 <div className="mt-3 text-3xl font-semibold text-white">{card.value}</div>
               </div>
             ))}
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-5">
+              <div className="text-sm text-slate-400">New requests</div>
+              <div className="mt-2 text-3xl font-semibold text-white">{advertisingRequestCounts.newRequests}</div>
+            </div>
+            <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-5">
+              <div className="text-sm text-slate-400">Approved campaigns</div>
+              <div className="mt-2 text-3xl font-semibold text-white">{advertisingRequestCounts.approvedCampaigns}</div>
+            </div>
+            <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-5">
+              <div className="text-sm text-slate-400">Rejected requests</div>
+              <div className="mt-2 text-3xl font-semibold text-white">{advertisingRequestCounts.rejectedRequests}</div>
+            </div>
+            <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-5">
+              <div className="text-sm text-slate-400">Completed campaigns</div>
+              <div className="mt-2 text-3xl font-semibold text-white">{advertisingRequestCounts.completedCampaigns}</div>
+            </div>
           </div>
 
           <div className="mt-10 grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
@@ -485,6 +573,36 @@ const AdminPage = () => {
                   )) : <p>No payment history yet.</p>}
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
+            <h2 className="text-2xl font-semibold text-white">Advertising Requests</h2>
+            <div className="mt-6 grid gap-3">
+              {advertisingRequests.length > 0 ? advertisingRequests.map((request) => (
+                <div key={request._id} className="rounded-[1.25rem] border border-white/10 bg-white/5 p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="text-lg font-semibold text-white">{request.companyName}</div>
+                      <div className="mt-1 text-sm text-slate-400">{request.campaignTitle}</div>
+                      <div className="mt-2 text-sm text-slate-300">Requested dates: {request.startDate ? new Date(request.startDate).toLocaleDateString() : '—'} to {request.endDate ? new Date(request.endDate).toLocaleDateString() : '—'}</div>
+                      <div className="mt-1 text-sm text-slate-300">Budget: {request.budget}</div>
+                      <div className="mt-1 text-sm text-slate-300">Advertisement type: {request.advertisementType}</div>
+                      <div className="mt-1 text-sm text-slate-300">Contact email: {request.email}</div>
+                      <div className="mt-1 text-sm text-slate-300">Contact phone: {request.phone || '—'}</div>
+                      <div className="mt-2 text-xs uppercase tracking-[0.2em] text-cyan-300">Status: {request.status}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <button type="button" onClick={() => handleAdvertisingStatusUpdate(request._id, 'approved')} className="rounded-full border border-emerald-400/30 px-3 py-1 text-emerald-300">Approve</button>
+                      <button type="button" onClick={() => handleAdvertisingStatusUpdate(request._id, 'rejected')} className="rounded-full border border-rose-400/30 px-3 py-1 text-rose-300">Reject</button>
+                      <button type="button" onClick={() => handleAdvertisingStatusUpdate(request._id, 'contacted')} className="rounded-full border border-white/10 px-3 py-1 text-slate-100">Mark Contacted</button>
+                      <button type="button" onClick={() => handleAdvertisingStatusUpdate(request._id, 'campaign-live')} className="rounded-full border border-cyan-400/30 px-3 py-1 text-cyan-300">Mark Campaign Live</button>
+                      <button type="button" onClick={() => handleAdvertisingStatusUpdate(request._id, 'completed')} className="rounded-full border border-violet-400/30 px-3 py-1 text-violet-300">Mark Completed</button>
+                      <button type="button" onClick={() => handleAdvertisingStatusUpdate(request._id, 'archived')} className="rounded-full border border-white/10 px-3 py-1 text-slate-200">Archive</button>
+                    </div>
+                  </div>
+                </div>
+              )) : <p className="text-sm text-slate-400">No advertising requests yet.</p>}
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import nodemailer from 'nodemailer';
 import { v2 as cloudinary } from 'cloudinary';
 import { isAdvertisementActive } from './advertisementUtils.js';
 import { syncAdminAccount } from './adminBootstrap.js';
@@ -30,6 +31,11 @@ const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || process.en
 const JWT_SECRET = process.env.JWT_SECRET || 'innovationxlab-secret';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@innovationxlab.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin123456';
+const EMAIL_FROM = process.env.EMAIL_FROM || ADMIN_EMAIL;
+const EMAIL_HOST = process.env.EMAIL_HOST || '';
+const EMAIL_PORT = Number(process.env.EMAIL_PORT || 587);
+const EMAIL_USER = process.env.EMAIL_USER || '';
+const EMAIL_PASS = process.env.EMAIL_PASS || '';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'e4cjpp5k',
@@ -140,12 +146,35 @@ const advertisementSchema = new mongoose.Schema({
   description: { type: String, default: '' },
 }, { timestamps: true });
 
+const advertisingRequestSchema = new mongoose.Schema({
+  companyName: { type: String, required: true },
+  businessName: { type: String, required: true },
+  website: { type: String, default: '' },
+  industry: { type: String, required: true },
+  email: { type: String, required: true, lowercase: true },
+  phone: { type: String, default: '' },
+  country: { type: String, required: true },
+  objective: { type: String, required: true },
+  advertisementType: { type: String, required: true },
+  campaignTitle: { type: String, required: true },
+  campaignDescription: { type: String, required: true },
+  targetAudience: { type: String, required: true },
+  startDate: { type: Date, default: null },
+  endDate: { type: Date, default: null },
+  budget: { type: String, default: '' },
+  mediaFile: { type: String, default: '' },
+  additionalNotes: { type: String, default: '' },
+  status: { type: String, enum: ['new', 'approved', 'rejected', 'contacted', 'campaign-live', 'completed', 'archived'], default: 'new' },
+  submittedAt: { type: Date, default: Date.now },
+}, { timestamps: true, collection: 'advertisingRequests' });
+
 const User = mongoose.model('User', userSchema);
 const Article = mongoose.model('Article', articleSchema);
 const Review = mongoose.model('Review', reviewSchema);
 const Newsletter = mongoose.model('Newsletter', newsletterSchema);
 const PaymentHistory = mongoose.model('PaymentHistory', paymentHistorySchema);
 const Advertisement = mongoose.model('Advertisement', advertisementSchema);
+const AdvertisingRequest = mongoose.model('AdvertisingRequest', advertisingRequestSchema);
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
 
 const authenticate = async (req, res, next) => {
@@ -182,6 +211,53 @@ const slugify = (value) => value
   .replace(/[^a-z0-9\s-]/g, '')
   .replace(/\s+/g, '-')
   .replace(/-+/g, '-');
+
+const sendAdvertisingRequestEmails = async (requestRecord) => {
+  const confirmationSubject = "We've Received Your Advertising Request";
+  const confirmationMessage = [
+    'Thank you for your interest in advertising with Innovation X Lab.',
+    '',
+    'Our team will review your request and contact you shortly to discuss the campaign.',
+  ].join('\n');
+
+  const adminMessage = [
+    `New advertising request received from ${requestRecord.companyName}.`,
+    `Campaign: ${requestRecord.campaignTitle}`,
+    `Contact: ${requestRecord.email}`,
+    `Budget: ${requestRecord.budget}`,
+    `Type: ${requestRecord.advertisementType}`,
+  ].join('\n');
+
+  if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
+    console.log(`[advertising-request] To: ${requestRecord.email}\nSubject: ${confirmationSubject}\n${confirmationMessage}`);
+    console.log(`[advertising-request] Admin notification to ${ADMIN_EMAIL}\n${adminMessage}`);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_PORT === 465,
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: requestRecord.email,
+    subject: confirmationSubject,
+    text: confirmationMessage,
+  });
+
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: ADMIN_EMAIL,
+    subject: 'New Advertising Request Received',
+    text: adminMessage,
+  });
+};
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -427,6 +503,26 @@ app.post('/api/upload', authenticate, requireAdmin, upload.single('image'), asyn
   }
 });
 
+app.post('/api/upload-advertising-media', upload.single('mediaFile'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Media file is required' });
+  }
+
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream({ folder: 'innovation-x-lab/advertising' }, (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+      uploadStream.end(req.file.buffer);
+    });
+
+    res.json({ url: result.secure_url });
+  } catch (error) {
+    res.status(500).json({ error: 'Media upload failed' });
+  }
+});
+
 const escapeRegExp = (value) => value.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 app.get('/api/reviews', async (_req, res) => {
@@ -585,6 +681,81 @@ app.delete('/api/admin/advertisements/:id', authenticate, requireAdmin, async (r
     return res.status(404).json({ error: 'Advertisement not found' });
   }
   res.json({ success: true });
+});
+
+app.post('/api/advertising-requests', async (req, res) => {
+  const payload = req.body || {};
+  const requiredFields = [
+    'companyName',
+    'businessName',
+    'industry',
+    'email',
+    'country',
+    'objective',
+    'advertisementType',
+    'campaignTitle',
+    'campaignDescription',
+    'targetAudience',
+    'startDate',
+    'endDate',
+    'budget',
+  ];
+
+  const missingField = requiredFields.find((field) => !String(payload[field] || '').trim());
+  if (missingField) {
+    return res.status(400).json({ error: `Missing required field: ${missingField}` });
+  }
+
+  const requestRecord = await AdvertisingRequest.create({
+    companyName: String(payload.companyName).trim(),
+    businessName: String(payload.businessName).trim(),
+    website: String(payload.website || '').trim(),
+    industry: String(payload.industry).trim(),
+    email: normalizeEmail(payload.email),
+    phone: String(payload.phone || '').trim(),
+    country: String(payload.country).trim(),
+    objective: String(payload.objective).trim(),
+    advertisementType: String(payload.advertisementType).trim(),
+    campaignTitle: String(payload.campaignTitle).trim(),
+    campaignDescription: String(payload.campaignDescription).trim(),
+    targetAudience: String(payload.targetAudience).trim(),
+    startDate: payload.startDate ? new Date(payload.startDate) : null,
+    endDate: payload.endDate ? new Date(payload.endDate) : null,
+    budget: String(payload.budget).trim(),
+    mediaFile: String(payload.mediaFile || '').trim(),
+    additionalNotes: String(payload.additionalNotes || '').trim(),
+    status: 'new',
+    submittedAt: new Date(),
+  });
+
+  await sendAdvertisingRequestEmails(requestRecord);
+
+  res.status(201).json({ success: true, request: requestRecord });
+});
+
+app.get('/api/admin/advertising-requests', authenticate, requireAdmin, async (_req, res) => {
+  const requests = await AdvertisingRequest.find().sort({ submittedAt: -1 }).lean();
+  res.json(requests.map((request) => ({
+    ...request,
+    status: request.status || 'new',
+  })));
+});
+
+app.put('/api/admin/advertising-requests/:id', authenticate, requireAdmin, async (req, res) => {
+  const requestRecord = await AdvertisingRequest.findById(req.params.id);
+  if (!requestRecord) {
+    return res.status(404).json({ error: 'Advertising request not found' });
+  }
+
+  const allowedStatuses = ['new', 'approved', 'rejected', 'contacted', 'campaign-live', 'completed', 'archived'];
+  const { status } = req.body;
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Invalid advertising request status' });
+  }
+
+  requestRecord.status = status;
+  await requestRecord.save();
+  res.json(requestRecord);
 });
 
 app.post('/api/newsletter', async (req, res) => {
