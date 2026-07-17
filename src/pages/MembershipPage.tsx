@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2, Crown, ShieldCheck } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { buildApiUrl } from '../config/api';
@@ -29,8 +29,32 @@ const MembershipPage = () => {
   });
   const [processing, setProcessing] = useState(false);
 
+  useEffect(() => {
+    const savedSelection = window.localStorage.getItem('membershipSelection');
+    if (!savedSelection) {
+      return;
+    }
+
+    try {
+      const parsedSelection = JSON.parse(savedSelection);
+      if (parsedSelection.plan === 'free' || parsedSelection.plan === 'premium') {
+        setSelectedPlan(parsedSelection.plan);
+      }
+      if (parsedSelection.billingCycle === 'monthly' || parsedSelection.billingCycle === 'annual') {
+        setBillingCycle(parsedSelection.billingCycle);
+      }
+    } catch (error) {
+      console.error('Unable to restore membership selection', error);
+    }
+  }, []);
+
+  const persistSelection = (plan: MembershipPlan, nextBillingCycle: BillingCycle) => {
+    window.localStorage.setItem('membershipSelection', JSON.stringify({ plan, billingCycle: nextBillingCycle }));
+  };
+
   const handleSelectPlan = (plan: MembershipPlan) => {
     setSelectedPlan(plan);
+    persistSelection(plan, billingCycle);
     navigate(plan === 'free' ? '/membership/free' : '/membership/premium');
   };
 
@@ -180,14 +204,20 @@ const MembershipPage = () => {
               <div className="flex rounded-full border border-white/10 bg-white/5 p-1">
                 <button
                   type="button"
-                  onClick={() => setBillingCycle('monthly')}
+                  onClick={() => {
+                    setBillingCycle('monthly');
+                    persistSelection('premium', 'monthly');
+                  }}
                   className={`rounded-full px-3 py-2 text-sm ${billingCycle === 'monthly' ? 'bg-cyan-500/10 text-cyan-200' : 'text-slate-300'}`}
                 >
                   Monthly
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBillingCycle('annual')}
+                  onClick={() => {
+                    setBillingCycle('annual');
+                    persistSelection('premium', 'annual');
+                  }}
                   className={`rounded-full px-3 py-2 text-sm ${billingCycle === 'annual' ? 'bg-violet-500/10 text-violet-200' : 'text-slate-300'}`}
                 >
                   Annual

@@ -1071,10 +1071,15 @@ app.post('/api/subscriptions/checkout', authenticate, async (req, res) => {
 
   if (provider === 'PayPal') {
     const paypalConfig = getPayPalConfig(process.env);
+    console.log('[paypal-order] mode loaded', paypalConfig.mode);
+    console.log('[paypal-order] client id detected', paypalConfig.clientId ? `${paypalConfig.clientId.slice(0, 6)}...` : 'missing');
+    console.log('[paypal-order] request received', { plan, billingCycle, provider, amount });
+
     if (!paypalConfig.clientId || !paypalConfig.clientSecret) {
       paymentRecord.paymentStatus = 'failed';
       paymentRecord.metadata = { error: 'PayPal credentials are not configured.' };
       await paymentRecord.save();
+      console.error('[paypal-order] missing credentials', { mode: paypalConfig.mode });
       return res.status(500).json({ error: 'PayPal credentials are not configured.' });
     }
 
@@ -1099,12 +1104,14 @@ app.post('/api/subscriptions/checkout', authenticate, async (req, res) => {
       });
 
       const orderData = await response.json();
+      console.log('[paypal-order] api response', { status: response.status, orderId: orderData?.id, statusText: orderData?.status, links: orderData?.links?.length || 0 });
       if (!response.ok) {
+        const backendError = orderData?.error_description || orderData?.message || 'Unable to create PayPal order.';
         paymentRecord.paymentStatus = 'failed';
-        paymentRecord.metadata = { error: orderData?.message || 'Unable to create PayPal order.' };
+        paymentRecord.metadata = { error: backendError };
         await paymentRecord.save();
-        console.error('[paypal-order] create failed', orderData);
-        return res.status(502).json({ error: 'Unable to create PayPal order.' });
+        console.error('[paypal-order] create failed', { status: response.status, error: backendError, orderData });
+        return res.status(502).json({ error: backendError });
       }
 
       const approvalUrl = orderData.links?.find((link) => link.rel === 'approve')?.href || '';
@@ -1146,11 +1153,12 @@ app.post('/api/subscriptions/checkout', authenticate, async (req, res) => {
         nextRenewal: endDate,
       });
     } catch (error) {
-      console.error('[paypal-order] setup failed', error);
+      const errorMessage = error?.message || 'PayPal checkout failed.';
+      console.error('[paypal-order] setup failed', { error: errorMessage, stack: error?.stack });
       paymentRecord.paymentStatus = 'failed';
-      paymentRecord.metadata = { error: error.message || 'PayPal checkout failed.' };
+      paymentRecord.metadata = { error: errorMessage };
       await paymentRecord.save();
-      return res.status(500).json({ error: 'Could not initialize PayPal checkout.' });
+      return res.status(500).json({ error: errorMessage });
     }
   }
 

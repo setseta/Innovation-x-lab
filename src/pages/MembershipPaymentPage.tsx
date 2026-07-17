@@ -22,10 +22,32 @@ const methods: PaymentMethod[] = [
   { name: 'debit', label: 'Debit Card' },
 ];
 
+const getStoredSelection = (): { plan: 'free' | 'premium'; billingCycle: 'monthly' | 'annual' } => {
+  if (typeof window === 'undefined') {
+    return { plan: 'premium', billingCycle: 'monthly' };
+  }
+
+  try {
+    const savedSelection = window.localStorage.getItem('membershipSelection');
+    if (!savedSelection) {
+      return { plan: 'premium', billingCycle: 'monthly' };
+    }
+
+    const parsedSelection = JSON.parse(savedSelection);
+    const plan = parsedSelection.plan === 'free' ? 'free' : 'premium';
+    const billingCycle = parsedSelection.billingCycle === 'annual' ? 'annual' : 'monthly';
+    return { plan, billingCycle };
+  } catch (error) {
+    console.error('Unable to restore payment selection', error);
+    return { plan: 'premium', billingCycle: 'monthly' };
+  }
+};
+
 const MembershipPaymentPage = () => {
   const navigate = useNavigate();
-  const [plan, setPlan] = useState<'free' | 'premium'>('premium');
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const initialSelection = getStoredSelection();
+  const [plan, setPlan] = useState<'free' | 'premium'>(initialSelection.plan);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>(initialSelection.billingCycle);
   const [selectedMethod, setSelectedMethod] = useState('paypal');
   const [message, setMessage] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -52,6 +74,10 @@ const MembershipPaymentPage = () => {
   }, [navigate]);
 
   const total = useMemo(() => (billingCycle === 'annual' ? 20 : 2), [billingCycle]);
+
+  const persistSelection = (nextBillingCycle: 'monthly' | 'annual') => {
+    window.localStorage.setItem('membershipSelection', JSON.stringify({ plan, billingCycle: nextBillingCycle }));
+  };
 
   const handlePayment = async () => {
     const token = localStorage.getItem('authToken');
@@ -110,6 +136,10 @@ const MembershipPaymentPage = () => {
               </div>
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">{billingCycle === 'annual' ? 'Annual' : 'Monthly'}</div>
             </div>
+            <div className="mt-5 flex rounded-full border border-white/10 bg-white/5 p-1">
+              <button type="button" aria-pressed={billingCycle === 'monthly'} onClick={() => { setBillingCycle('monthly'); persistSelection('monthly'); }} className={`flex-1 rounded-full px-3 py-2 text-sm transition-all ${billingCycle === 'monthly' ? 'bg-cyan-500/10 text-cyan-200' : 'text-slate-300'}`}>Monthly</button>
+              <button type="button" aria-pressed={billingCycle === 'annual'} onClick={() => { setBillingCycle('annual'); persistSelection('annual'); }} className={`flex-1 rounded-full px-3 py-2 text-sm transition-all ${billingCycle === 'annual' ? 'bg-violet-500/10 text-violet-200' : 'text-slate-300'}`}>Annual</button>
+            </div>
             <div className="mt-6 space-y-3">
               <div className="flex items-center justify-between text-sm text-slate-300"><span>Plan price</span><span>${total}</span></div>
               <div className="flex items-center justify-between text-sm text-slate-300"><span>Processing</span><span>Secure</span></div>
@@ -117,12 +147,38 @@ const MembershipPaymentPage = () => {
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            {methods.map((method) => (
-              <button key={method.name} type="button" onClick={() => setSelectedMethod(method.name)} className={`rounded-2xl border px-4 py-3 text-left text-sm ${selectedMethod === method.name ? 'border-cyan-400/30 bg-cyan-500/10 text-white' : 'border-white/10 bg-white/5 text-slate-300'}`}>
-                {method.label}
-              </button>
-            ))}
+            {methods.map((method) => {
+              const isSelected = selectedMethod === method.name;
+              return (
+                <button key={method.name} type="button" aria-pressed={isSelected} onClick={() => setSelectedMethod(method.name)} className={`rounded-2xl border px-4 py-3 text-left text-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 ${isSelected ? 'border-cyan-400/40 bg-cyan-500/15 text-white shadow-[0_0_0_1px_rgba(34,211,238,0.2)]' : 'border-white/10 bg-white/5 text-slate-300'}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      {method.name === 'paypal' ? (
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-700">
+                          PP
+                        </span>
+                      ) : null}
+                      <span className="font-medium">{method.label}</span>
+                    </div>
+                    {isSelected ? <CheckCircle2 size={16} className="text-cyan-300" /> : null}
+                  </div>
+                  {method.name === 'paypal' ? <span className="mt-2 block text-[11px] uppercase tracking-[0.24em] text-cyan-300">Fast secure wallet</span> : null}
+                </button>
+              );
+            })}
           </div>
+
+          {selectedMethod === 'paypal' ? (
+            <div className="mt-4 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 size={16} className="mt-0.5 text-cyan-300" />
+                <div>
+                  <p className="font-semibold text-white">✓ PayPal Selected</p>
+                  <p className="mt-1 text-cyan-100/90">You will securely complete your payment using your PayPal account.</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-[2rem] border border-white/10 bg-slate-900/70 p-8 shadow-[0_0_35px_rgba(14,165,233,0.08)]">

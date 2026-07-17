@@ -8,6 +8,8 @@ type MembershipRegisterPageProps = {
   plan: 'free' | 'premium';
 };
 
+type BillingCycle = 'monthly' | 'annual';
+
 const MembershipRegisterPage = ({ plan }: MembershipRegisterPageProps) => {
   const navigate = useNavigate();
   const params = useParams<{ plan?: string }>();
@@ -20,6 +22,23 @@ const MembershipRegisterPage = ({ plan }: MembershipRegisterPageProps) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+
+  useEffect(() => {
+    const savedSelection = window.localStorage.getItem('membershipSelection');
+    if (!savedSelection) {
+      return;
+    }
+
+    try {
+      const parsedSelection = JSON.parse(savedSelection);
+      if (parsedSelection.billingCycle === 'monthly' || parsedSelection.billingCycle === 'annual') {
+        setBillingCycle(parsedSelection.billingCycle);
+      }
+    } catch (error) {
+      console.error('Unable to restore membership billing cycle', error);
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -27,6 +46,10 @@ const MembershipRegisterPage = ({ plan }: MembershipRegisterPageProps) => {
       navigate(isPremium ? '/membership/payment' : '/dashboard');
     }
   }, [navigate, isPremium]);
+
+  const persistSelection = (nextBillingCycle: BillingCycle) => {
+    window.localStorage.setItem('membershipSelection', JSON.stringify({ plan: resolvedPlan, billingCycle: nextBillingCycle }));
+  };
 
   const benefits = useMemo(() => isPremium
     ? [
@@ -57,7 +80,7 @@ const MembershipRegisterPage = ({ plan }: MembershipRegisterPageProps) => {
           password,
           confirmPassword,
           membershipPlan: resolvedPlan,
-          billingCycle: 'monthly',
+          billingCycle,
         }),
       });
       const data = await response.json();
@@ -133,10 +156,16 @@ const MembershipRegisterPage = ({ plan }: MembershipRegisterPageProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">{isPremium ? 'Premium' : 'Free'}</p>
-                <p className="mt-2 text-xl font-semibold text-white">{isPremium ? 'Monthly from $2' : 'Always free'}</p>
+                <p className="mt-2 text-xl font-semibold text-white">{isPremium ? `${billingCycle === 'annual' ? 'Annual from $20' : 'Monthly from $2'}` : 'Always free'}</p>
               </div>
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">Verified experience</div>
             </div>
+            {isPremium ? (
+              <div className="mt-5 flex rounded-full border border-white/10 bg-white/5 p-1">
+                <button type="button" onClick={() => { setBillingCycle('monthly'); persistSelection('monthly'); }} className={`flex-1 rounded-full px-3 py-2 text-sm ${billingCycle === 'monthly' ? 'bg-cyan-500/10 text-cyan-200' : 'text-slate-300'}`}>Monthly</button>
+                <button type="button" onClick={() => { setBillingCycle('annual'); persistSelection('annual'); }} className={`flex-1 rounded-full px-3 py-2 text-sm ${billingCycle === 'annual' ? 'bg-violet-500/10 text-violet-200' : 'text-slate-300'}`}>Annual</button>
+              </div>
+            ) : null}
           </div>
         </section>
 
