@@ -122,7 +122,7 @@ const PricingPage = () => {
       const checkoutResponse = await fetch(buildApiUrl('/api/subscriptions/checkout'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ plan: 'premium', billingCycle, provider: 'Stripe' }),
+        body: JSON.stringify({ plan: 'premium', billingCycle, provider: 'PayPal' }),
       });
       const checkoutData = await checkoutResponse.json();
       if (!checkoutResponse.ok) {
@@ -130,10 +130,15 @@ const PricingPage = () => {
         return;
       }
 
+      if (checkoutData.approvalUrl) {
+        window.location.assign(checkoutData.approvalUrl);
+        return;
+      }
+
       const confirmResponse = await fetch(buildApiUrl('/api/subscriptions/confirm'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: 'succeeded', provider: 'Stripe' }),
+        body: JSON.stringify({ status: 'succeeded', provider: 'PayPal' }),
       });
       const confirmData = await confirmResponse.json();
       if (!confirmResponse.ok) {

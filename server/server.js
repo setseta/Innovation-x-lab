@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import nodemailer from 'nodemailer';
@@ -18,6 +19,7 @@ import {
   getSubscriptionSummary,
   isPremiumAccessAllowed,
 } from './subscriptionUtils.js';
+import { buildPayPalOrderPayload, getPayPalConfig } from './paypalUtils.js';
 
 dotenv.config();
 
@@ -36,6 +38,7 @@ const EMAIL_HOST = process.env.EMAIL_HOST || '';
 const EMAIL_PORT = Number(process.env.EMAIL_PORT || 587);
 const EMAIL_USER = process.env.EMAIL_USER || '';
 const EMAIL_PASS = process.env.EMAIL_PASS || '';
+const FRONTEND_BASE_URL = (process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.PUBLIC_URL || 'http://localhost:5173').replace(/\/$/, '');
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'e4cjpp5k',
@@ -73,6 +76,8 @@ const userSchema = new mongoose.Schema({
   paymentProvider: { type: String, default: '' },
   billingCycle: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
   newsletterPreference: { type: String, enum: ['free', 'premium'], default: 'free' },
+  emailVerified: { type: Boolean, default: false },
+  verificationToken: { type: String, default: '' },
 }, { timestamps: true });
 
 const subscriptionSchema = new mongoose.Schema({
@@ -130,6 +135,21 @@ const paymentHistorySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+const paymentSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  plan: { type: String, enum: ['free', 'premium'], default: 'free' },
+  amount: { type: Number, required: true },
+  currency: { type: String, default: 'USD' },
+  billingCycle: { type: String, enum: ['monthly', 'annual'], default: 'monthly' },
+  provider: { type: String, default: 'PayPal' },
+  paypalOrderId: { type: String, default: '' },
+  paypalTransactionId: { type: String, default: '' },
+  paymentStatus: { type: String, enum: ['pending', 'created', 'succeeded', 'failed', 'cancelled'], default: 'pending' },
+  paymentDate: { type: Date, default: null },
+  expiryDate: { type: Date, default: null },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+}, { timestamps: true, collection: 'payments' });
+
 const advertisementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   advertiserName: { type: String, required: true },
@@ -173,6 +193,7 @@ const Article = mongoose.model('Article', articleSchema);
 const Review = mongoose.model('Review', reviewSchema);
 const Newsletter = mongoose.model('Newsletter', newsletterSchema);
 const PaymentHistory = mongoose.model('PaymentHistory', paymentHistorySchema);
+const Payment = mongoose.model('Payment', paymentSchema);
 const Advertisement = mongoose.model('Advertisement', advertisementSchema);
 const AdvertisingRequest = mongoose.model('AdvertisingRequest', advertisingRequestSchema);
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
@@ -211,6 +232,35 @@ const slugify = (value) => value
   .replace(/[^a-z0-9\s-]/g, '')
   .replace(/\s+/g, '-')
   .replace(/-+/g, '-');
+
+const sendVerificationEmail = async ({ user, token }) => {
+  if (!user?.email) {
+    return;
+  }
+
+  const verificationUrl = `${FRONTEND_BASE_URL}/verify-email?token=${encodeURIComponent(token)}`;
+  if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
+    console.log(`[verification-email] To: ${user.email}\nSubject: Verify your Innovation X Lab account\n${verificationUrl}`);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_PORT === 465,
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: user.email,
+    subject: 'Verify your Innovation X Lab account',
+    text: `Hi ${user.name || 'there'},\n\nPlease verify your email address to activate your account.\n\n${verificationUrl}\n\nThanks,\nInnovation X Lab`,
+  });
+};
 
 const sendAdvertisingRequestEmails = async (requestRecord) => {
   const confirmationSubject = "We've Received Your Advertising Request";
@@ -259,6 +309,134 @@ const sendAdvertisingRequestEmails = async (requestRecord) => {
   });
 };
 
+const getFrontendBaseUrl = (req) => {
+  const originValue = req.headers.origin || req.headers.referer || '';
+  if (originValue) {
+    return String(originValue).replace(/\/$/, '');
+  }
+  return FRONTEND_BASE_URL;
+};
+
+const getSubscriptionExpiryDate = (billingCycle, startDate = new Date()) => {
+  const normalizedStartDate = new Date(startDate);
+  if (billingCycle === 'annual') {
+    return new Date(new Date(normalizedStartDate).setFullYear(normalizedStartDate.getFullYear() + 1));
+  }
+  return new Date(new Date(normalizedStartDate).setMonth(normalizedStartDate.getMonth() + 1));
+};
+
+const getPayPalAccessToken = async (config) => {
+  const auth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
+  const response = await fetch(`${config.baseUrl}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error_description || 'Unable to authenticate with PayPal.');
+  }
+
+  return data.access_token;
+};
+
+const activatePremiumMembership = async ({ user, billingCycle, paymentRecord, provider = 'PayPal', paymentStatus = 'succeeded', paymentDate = new Date(), transactionId = '', expiryDate = null, metadata = {} }) => {
+  const normalizedBillingCycle = billingCycle === 'annual' ? 'annual' : 'monthly';
+  const startDate = paymentDate instanceof Date ? paymentDate : new Date(paymentDate || new Date());
+  const nextExpiryDate = expiryDate || getSubscriptionExpiryDate(normalizedBillingCycle, startDate);
+
+  user.membershipPlan = 'premium';
+  user.subscriptionPlan = 'premium';
+  user.subscriptionStatus = 'active';
+  user.subscriptionStartDate = startDate;
+  user.subscriptionEndDate = nextExpiryDate;
+  user.paymentProvider = provider;
+  user.billingCycle = normalizedBillingCycle;
+  user.newsletterPreference = 'premium';
+  await user.save();
+
+  const subscription = await Subscription.findOne({ userId: user._id, status: { $in: ['pending', 'active'] } }).sort({ createdAt: -1 });
+  if (subscription) {
+    subscription.plan = 'premium';
+    subscription.billingCycle = normalizedBillingCycle;
+    subscription.price = paymentRecord?.amount || calculateSubscriptionPrice('premium', normalizedBillingCycle);
+    subscription.paymentProvider = provider;
+    subscription.status = 'active';
+    subscription.startDate = startDate;
+    subscription.endDate = nextExpiryDate;
+    await subscription.save();
+  } else {
+    await Subscription.create({
+      userId: user._id,
+      plan: 'premium',
+      billingCycle: normalizedBillingCycle,
+      price: paymentRecord?.amount || calculateSubscriptionPrice('premium', normalizedBillingCycle),
+      paymentProvider: provider,
+      status: 'active',
+      startDate,
+      endDate: nextExpiryDate,
+    });
+  }
+
+  if (paymentRecord) {
+    paymentRecord.plan = 'premium';
+    paymentRecord.amount = paymentRecord.amount || calculateSubscriptionPrice('premium', normalizedBillingCycle);
+    paymentRecord.currency = paymentRecord.currency || 'USD';
+    paymentRecord.billingCycle = normalizedBillingCycle;
+    paymentRecord.provider = provider;
+    paymentRecord.paymentStatus = paymentStatus;
+    paymentRecord.paymentDate = startDate;
+    paymentRecord.expiryDate = nextExpiryDate;
+    paymentRecord.paypalTransactionId = paymentRecord.paypalTransactionId || transactionId;
+    paymentRecord.metadata = { ...paymentRecord.metadata, ...metadata };
+    await paymentRecord.save();
+  }
+
+  await PaymentHistory.create({
+    userId: user._id,
+    amount: paymentRecord?.amount || calculateSubscriptionPrice('premium', normalizedBillingCycle),
+    currency: paymentRecord?.currency || 'USD',
+    billingCycle: normalizedBillingCycle,
+    provider,
+    status: paymentStatus === 'succeeded' ? 'succeeded' : 'pending',
+  });
+
+  return { user, subscription, paymentRecord };
+};
+
+const sendPaymentReceiptEmail = async ({ user, paymentRecord }) => {
+  if (!user?.email) {
+    return;
+  }
+
+  if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) {
+    console.log(`[payment-receipt] To: ${user.email}\nSubject: Innovation X Lab payment receipt`);
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_PORT === 465,
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+  });
+
+  const amountText = `${paymentRecord.amount} ${paymentRecord.currency || 'USD'}`;
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: user.email,
+    subject: 'Innovation X Lab payment receipt',
+    text: `Hi ${user.name || 'there'},\n\nYour payment of ${amountText} for your Innovation X Premium membership was successful.\n\nPlan: ${paymentRecord.plan || 'premium'}\nStatus: ${paymentRecord.paymentStatus || 'succeeded'}\nPayment date: ${new Date(paymentRecord.paymentDate || new Date()).toISOString()}\n\nThanks for supporting Innovation X Lab.`,
+  });
+};
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
@@ -302,9 +480,13 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, membershipPlan = 'free', billingCycle = 'monthly' } = req.body;
+  const { name, email, password, confirmPassword, membershipPlan = 'free', billingCycle = 'monthly' } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+
+  if (confirmPassword && String(password) !== String(confirmPassword)) {
+    return res.status(400).json({ error: 'Passwords do not match' });
   }
 
   const normalizedEmail = normalizeEmail(email);
@@ -315,6 +497,7 @@ app.post('/api/auth/register', async (req, res) => {
 
   const normalizedPlan = membershipPlan === 'premium' ? 'premium' : 'free';
   const normalizedBillingCycle = billingCycle === 'annual' ? 'annual' : 'monthly';
+  const verificationToken = randomBytes(20).toString('hex');
   const hashedPassword = await bcrypt.hash(String(password), 10);
   const createdUser = await User.create({
     name,
@@ -329,6 +512,8 @@ app.post('/api/auth/register', async (req, res) => {
     newsletterPreference: normalizedPlan === 'premium' ? 'premium' : 'free',
     paymentProvider: '',
     billingCycle: normalizedBillingCycle,
+    emailVerified: false,
+    verificationToken,
   });
 
   if (normalizedPlan === 'free') {
@@ -344,9 +529,12 @@ app.post('/api/auth/register', async (req, res) => {
     });
   }
 
+  await sendVerificationEmail({ user: createdUser, token: verificationToken });
+
   const token = jwt.sign({ id: createdUser._id, role: createdUser.role }, JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({
     token,
+    verificationToken,
     user: {
       id: createdUser._id,
       name: createdUser.name,
@@ -356,8 +544,27 @@ app.post('/api/auth/register', async (req, res) => {
       subscriptionPlan: createdUser.subscriptionPlan,
       subscriptionStatus: createdUser.subscriptionStatus,
       billingCycle: createdUser.billingCycle,
+      emailVerified: createdUser.emailVerified,
     },
   });
+});
+
+app.post('/api/auth/verify-email', async (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ error: 'Verification token is required' });
+  }
+
+  const user = await User.findOne({ verificationToken: token });
+  if (!user) {
+    return res.status(404).json({ error: 'Verification token not found' });
+  }
+
+  user.emailVerified = true;
+  user.verificationToken = '';
+  await user.save();
+
+  res.json({ success: true, message: 'Email verified successfully' });
 });
 
 app.get('/api/auth/me', authenticate, (req, res) => {
@@ -826,22 +1033,131 @@ app.get('/api/subscriptions/me', authenticate, async (req, res) => {
 });
 
 app.post('/api/subscriptions/checkout', authenticate, async (req, res) => {
-  const { plan, billingCycle = 'monthly', provider = 'Stripe' } = req.body;
+  const { plan, billingCycle = 'monthly', provider = 'PayPal' } = req.body;
   if (plan !== 'premium') {
     return res.status(400).json({ error: 'Only premium subscriptions are available' });
   }
 
   const amount = calculateSubscriptionPrice(plan, billingCycle);
   const startDate = new Date();
-  const endDate = billingCycle === 'annual'
-    ? new Date(new Date(startDate).setFullYear(startDate.getFullYear() + 1))
-    : new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
-
+  const endDate = getSubscriptionExpiryDate(billingCycle, startDate);
   const user = await User.findById(req.user._id);
+
+  const pendingPayment = await Payment.findOne({ userId: user._id, provider, paymentStatus: { $in: ['pending', 'created'] } }).sort({ createdAt: -1 });
+  if (pendingPayment && pendingPayment.paypalOrderId) {
+    return res.json({
+      message: 'Checkout already in progress',
+      plan,
+      billingCycle,
+      amount,
+      provider,
+      status: pendingPayment.paymentStatus,
+      paypalOrderId: pendingPayment.paypalOrderId,
+      approvalUrl: pendingPayment.metadata?.approvalUrl || '',
+      nextRenewal: endDate,
+    });
+  }
+
+  const paymentRecord = await Payment.create({
+    userId: user._id,
+    plan,
+    amount,
+    currency: 'USD',
+    billingCycle,
+    provider,
+    paymentStatus: 'pending',
+    expiryDate: endDate,
+  });
+
+  if (provider === 'PayPal') {
+    const paypalConfig = getPayPalConfig(process.env);
+    if (!paypalConfig.clientId || !paypalConfig.clientSecret) {
+      paymentRecord.paymentStatus = 'failed';
+      paymentRecord.metadata = { error: 'PayPal credentials are not configured.' };
+      await paymentRecord.save();
+      return res.status(500).json({ error: 'PayPal credentials are not configured.' });
+    }
+
+    try {
+      const accessToken = await getPayPalAccessToken(paypalConfig);
+      const orderPayload = buildPayPalOrderPayload({
+        plan,
+        billingCycle,
+        amount,
+        currency: 'USD',
+        returnUrl: `${getFrontendBaseUrl(req)}/payment/success`,
+        cancelUrl: `${getFrontendBaseUrl(req)}/payment/cancel`,
+      });
+
+      const response = await fetch(`${paypalConfig.baseUrl}/v2/checkout/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(orderPayload),
+      });
+
+      const orderData = await response.json();
+      if (!response.ok) {
+        paymentRecord.paymentStatus = 'failed';
+        paymentRecord.metadata = { error: orderData?.message || 'Unable to create PayPal order.' };
+        await paymentRecord.save();
+        console.error('[paypal-order] create failed', orderData);
+        return res.status(502).json({ error: 'Unable to create PayPal order.' });
+      }
+
+      const approvalUrl = orderData.links?.find((link) => link.rel === 'approve')?.href || '';
+      paymentRecord.paypalOrderId = orderData.id;
+      paymentRecord.paymentStatus = 'created';
+      paymentRecord.metadata = { approvalUrl, paypalOrderStatus: orderData.status };
+      await paymentRecord.save();
+
+      user.membershipPlan = 'premium';
+      user.subscriptionPlan = 'premium';
+      user.subscriptionStatus = 'pending';
+      user.subscriptionStartDate = startDate;
+      user.subscriptionEndDate = endDate;
+      user.paymentProvider = provider;
+      user.billingCycle = billingCycle;
+      user.newsletterPreference = 'premium';
+      await user.save();
+
+      await Subscription.create({
+        userId: user._id,
+        plan: 'premium',
+        billingCycle,
+        price: amount,
+        paymentProvider: provider,
+        status: 'pending',
+        startDate,
+        endDate,
+      });
+
+      return res.json({
+        message: 'Checkout initiated',
+        plan,
+        billingCycle,
+        amount,
+        provider,
+        status: 'created',
+        paypalOrderId: orderData.id,
+        approvalUrl,
+        nextRenewal: endDate,
+      });
+    } catch (error) {
+      console.error('[paypal-order] setup failed', error);
+      paymentRecord.paymentStatus = 'failed';
+      paymentRecord.metadata = { error: error.message || 'PayPal checkout failed.' };
+      await paymentRecord.save();
+      return res.status(500).json({ error: 'Could not initialize PayPal checkout.' });
+    }
+  }
+
   user.membershipPlan = 'premium';
   user.subscriptionPlan = 'premium';
   user.subscriptionStatus = 'pending';
-  user.subscriptionStartDate = new Date();
+  user.subscriptionStartDate = startDate;
   user.subscriptionEndDate = endDate;
   user.paymentProvider = provider;
   user.billingCycle = billingCycle;
@@ -855,7 +1171,7 @@ app.post('/api/subscriptions/checkout', authenticate, async (req, res) => {
     price: amount,
     paymentProvider: provider,
     status: 'pending',
-    startDate: user.subscriptionStartDate,
+    startDate,
     endDate,
   });
 
@@ -879,16 +1195,104 @@ app.post('/api/subscriptions/checkout', authenticate, async (req, res) => {
   });
 });
 
+app.post('/api/subscriptions/paypal/complete', authenticate, async (req, res) => {
+  const { orderId, payerId } = req.body;
+  if (!orderId) {
+    return res.status(400).json({ error: 'PayPal order ID is required.' });
+  }
+
+  const user = await User.findById(req.user._id);
+  const paymentRecord = await Payment.findOne({ paypalOrderId: orderId, userId: user._id }).sort({ createdAt: -1 });
+  if (!paymentRecord) {
+    return res.status(404).json({ error: 'Payment record not found.' });
+  }
+
+  if (paymentRecord.paymentStatus === 'succeeded') {
+    return res.json({ success: true, message: 'Premium membership already active.', user: { subscriptionPlan: user.subscriptionPlan, subscriptionStatus: user.subscriptionStatus, paymentProvider: user.paymentProvider } });
+  }
+
+  const paypalConfig = getPayPalConfig(process.env);
+  if (!paypalConfig.clientId || !paypalConfig.clientSecret) {
+    return res.status(500).json({ error: 'PayPal credentials are not configured.' });
+  }
+
+  try {
+    const accessToken = await getPayPalAccessToken(paypalConfig);
+    const captureResponse = await fetch(`${paypalConfig.baseUrl}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const captureData = await captureResponse.json();
+    if (!captureResponse.ok) {
+      paymentRecord.paymentStatus = 'failed';
+      paymentRecord.metadata = { ...paymentRecord.metadata, payerId, paypalOrderStatus: captureData?.status || 'failed' };
+      await paymentRecord.save();
+      console.error('[paypal-capture] failed', captureData);
+      return res.status(402).json({ error: captureData?.message || 'Payment could not be captured.', paymentStatus: paymentRecord.paymentStatus });
+    }
+
+    const capture = captureData?.purchase_units?.[0]?.payments?.captures?.[0] || {};
+    const paypalStatus = capture.status || captureData.status;
+    const transactionId = capture.id || '';
+
+    if (paypalStatus === 'COMPLETED') {
+      const paymentDate = new Date();
+      await activatePremiumMembership({
+        user,
+        billingCycle: paymentRecord.billingCycle || 'monthly',
+        paymentRecord,
+        provider: 'PayPal',
+        paymentStatus: 'succeeded',
+        paymentDate,
+        transactionId,
+        expiryDate: paymentRecord.expiryDate || getSubscriptionExpiryDate(paymentRecord.billingCycle || 'monthly', paymentDate),
+        metadata: { payerId, paypalOrderStatus: paypalStatus },
+      });
+      await sendPaymentReceiptEmail({ user, paymentRecord });
+      return res.json({ success: true, message: 'Premium membership activated.', user: { subscriptionPlan: user.subscriptionPlan, subscriptionStatus: user.subscriptionStatus, paymentProvider: user.paymentProvider } });
+    }
+
+    paymentRecord.paymentStatus = paypalStatus === 'VOIDED' ? 'cancelled' : 'failed';
+    paymentRecord.metadata = { ...paymentRecord.metadata, payerId, paypalOrderStatus: paypalStatus };
+    await paymentRecord.save();
+    return res.status(402).json({ error: 'Payment was not completed.', paymentStatus: paymentRecord.paymentStatus });
+  } catch (error) {
+    console.error('[paypal-capture] error', error);
+    paymentRecord.paymentStatus = 'failed';
+    paymentRecord.metadata = { ...paymentRecord.metadata, payerId, error: error.message || 'Payment verification failed.' };
+    await paymentRecord.save();
+    return res.status(500).json({ error: 'Payment could not be verified.' });
+  }
+});
+
 app.post('/api/subscriptions/confirm', authenticate, async (req, res) => {
-  const { status = 'active', paymentId, provider } = req.body;
+  const { status = 'active', paymentId, provider = 'Stripe' } = req.body;
   const user = await User.findById(req.user._id);
   const normalizedStatus = status === 'succeeded' ? 'active' : status;
+
+  if (normalizedStatus === 'active') {
+    const paymentRecord = await Payment.create({
+      userId: user._id,
+      plan: 'premium',
+      amount: calculateSubscriptionPrice('premium', user.billingCycle || 'monthly'),
+      currency: 'USD',
+      billingCycle: user.billingCycle || 'monthly',
+      provider,
+      paymentStatus: 'succeeded',
+      paymentDate: new Date(),
+    });
+    await activatePremiumMembership({ user, billingCycle: user.billingCycle || 'monthly', paymentRecord, provider, paymentStatus: 'succeeded', paymentDate: new Date(), metadata: { paymentId } });
+    return res.json({ message: 'Subscription updated', user: { subscriptionPlan: user.subscriptionPlan, subscriptionStatus: user.subscriptionStatus, paymentProvider: user.paymentProvider } });
+  }
 
   const subscription = await Subscription.findOne({ userId: user._id, status: 'pending' }).sort({ createdAt: -1 });
   if (subscription) {
     subscription.status = normalizedStatus;
     subscription.paymentProvider = provider || subscription.paymentProvider;
-    if (paymentId) subscription.paymentProvider = provider || subscription.paymentProvider;
     await subscription.save();
   }
 

@@ -16,6 +16,9 @@ import SearchPage from './pages/SearchPage';
 import ReviewEditorPage from './pages/ReviewEditorPage';
 import MembershipPage from './pages/MembershipPage';
 import MembershipDetailsPage from './pages/MembershipDetailsPage';
+import MembershipRegisterPage from './pages/MembershipRegisterPage';
+import MembershipPaymentPage from './pages/MembershipPaymentPage';
+import PaymentStatusPage from './pages/PaymentStatusPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -222,6 +225,11 @@ function App() {
           <Route path="/advertise" element={<AdvertisePage />} />
           <Route path="/membership" element={<MembershipPage />} />
           <Route path="/membership/:plan" element={<MembershipDetailsPage />} />
+          <Route path="/membership/free" element={<MembershipRegisterPage plan="free" />} />
+          <Route path="/membership/premium" element={<MembershipRegisterPage plan="premium" />} />
+          <Route path="/membership/payment" element={<MembershipPaymentPage />} />
+          <Route path="/payment/success" element={<PaymentStatusPage />} />
+          <Route path="/payment/cancel" element={<PaymentStatusPage />} />
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
           <Route path="/admin/login" element={<AdminPage />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />

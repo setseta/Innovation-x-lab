@@ -31,9 +31,7 @@ const MembershipPage = () => {
 
   const handleSelectPlan = (plan: MembershipPlan) => {
     setSelectedPlan(plan);
-    if (token) {
-      navigate(plan === 'free' ? '/membership/free' : '/membership/premium');
-    }
+    navigate(plan === 'free' ? '/membership/free' : '/membership/premium');
   };
 
   const handleAuth = async (event: FormEvent) => {
