@@ -65,10 +65,14 @@ app.use('/api', (req, res, next) => {
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  username: { type: String, default: '' },
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'user'], default: 'user' },
+  country: { type: String, default: '' },
+  role: { type: String, enum: ['admin', 'user', 'FREE_MEMBER', 'PREMIUM_MEMBER'], default: 'user' },
   membershipPlan: { type: String, enum: ['free', 'premium'], default: 'free' },
+  membershipType: { type: String, enum: ['FREE', 'PREMIUM'], default: 'FREE' },
+  membershipStatus: { type: String, enum: ['ACTIVE', 'INACTIVE', 'PENDING', 'CANCELLED', 'SUSPENDED'], default: 'ACTIVE' },
   subscriptionPlan: { type: String, enum: ['free', 'premium'], default: 'free' },
   subscriptionStatus: { type: String, enum: SUBSCRIPTION_STATUSES, default: 'active' },
   subscriptionStartDate: { type: Date, default: Date.now },
@@ -78,6 +82,8 @@ const userSchema = new mongoose.Schema({
   newsletterPreference: { type: String, enum: ['free', 'premium'], default: 'free' },
   emailVerified: { type: Boolean, default: false },
   verificationToken: { type: String, default: '' },
+  registrationDate: { type: Date, default: Date.now },
+  lastLogin: { type: Date, default: null },
 }, { timestamps: true });
 
 const subscriptionSchema = new mongoose.Schema({
@@ -476,6 +482,8 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   const normalizedStatus = getSubscriptionStatus(user.subscriptionStatus, user.subscriptionStartDate, user.subscriptionEndDate);
+  user.lastLogin = new Date();
+  await user.save();
   const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.json({
     token,
@@ -497,7 +505,17 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, confirmPassword, membershipPlan = 'free', billingCycle = 'monthly' } = req.body;
+  const {
+    name,
+    username = '',
+    email,
+    password,
+    confirmPassword,
+    country = '',
+    newsletterPreference = 'free',
+    membershipPlan = 'free',
+    billingCycle = 'monthly',
+  } = req.body;
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
   }
@@ -514,23 +532,33 @@ app.post('/api/auth/register', async (req, res) => {
 
   const normalizedPlan = membershipPlan === 'premium' ? 'premium' : 'free';
   const normalizedBillingCycle = billingCycle === 'annual' ? 'annual' : 'monthly';
+  const normalizedNewsletterPreference = newsletterPreference === 'premium' ? 'premium' : 'free';
+  const normalizedRole = normalizedPlan === 'premium' ? 'PREMIUM_MEMBER' : 'FREE_MEMBER';
+  const normalizedMembershipStatus = normalizedPlan === 'premium' ? 'PENDING' : 'ACTIVE';
+  const normalizedMembershipType = normalizedPlan === 'premium' ? 'PREMIUM' : 'FREE';
   const verificationToken = randomBytes(20).toString('hex');
   const hashedPassword = await bcrypt.hash(String(password), 10);
   const createdUser = await User.create({
     name,
+    username: String(username || '').trim(),
     email: normalizedEmail,
     password: hashedPassword,
-    role: 'user',
+    country: String(country || '').trim(),
+    role: normalizedRole,
     membershipPlan: normalizedPlan,
+    membershipType: normalizedMembershipType,
+    membershipStatus: normalizedMembershipStatus,
     subscriptionPlan: normalizedPlan,
     subscriptionStatus: normalizedPlan === 'premium' ? 'pending' : 'active',
     subscriptionStartDate: new Date(),
     subscriptionEndDate: normalizedPlan === 'premium' ? null : null,
-    newsletterPreference: normalizedPlan === 'premium' ? 'premium' : 'free',
+    newsletterPreference: normalizedNewsletterPreference,
     paymentProvider: '',
     billingCycle: normalizedBillingCycle,
     emailVerified: false,
     verificationToken,
+    registrationDate: new Date(),
+    lastLogin: new Date(),
   });
 
   if (normalizedPlan === 'free') {

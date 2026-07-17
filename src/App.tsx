@@ -21,6 +21,8 @@ import MembershipRegisterPage from './pages/MembershipRegisterPage';
 import MembershipPaymentPage from './pages/MembershipPaymentPage';
 import PaymentStatusPage from './pages/PaymentStatusPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import FreeMembershipDetailsPage from './pages/FreeMembershipDetailsPage';
+import FreeMembershipSuccessPage from './pages/FreeMembershipSuccessPage';
 
 function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -36,6 +38,7 @@ function App() {
   });
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [mobileMenuSection, setMobileMenuSection] = useState<string | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => {
@@ -109,6 +112,7 @@ function App() {
   ], []);
 
   const isDark = theme === 'dark';
+  const isAuthenticated = typeof window !== 'undefined' ? Boolean(window.localStorage.getItem('authToken')) : false;
   const isPremiumMember = (() => {
     if (typeof window === 'undefined') {
       return false;
@@ -173,11 +177,41 @@ function App() {
               Advertise With Us
             </Link>
 
-            <Link to="/membership" className={`relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-cyan-500 via-sky-500 to-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(14,165,233,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,211,238,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 ${isDark ? 'focus-visible:ring-offset-[#050816]' : 'focus-visible:ring-offset-white'}`} aria-label={isPremiumMember ? 'Open premium membership' : 'Open membership'}>
-              <Crown size={16} className="shrink-0" />
-              <span className="hidden sm:inline">{isPremiumMember ? 'Premium Member' : 'Membership'}</span>
-              <span className="sm:hidden">{isPremiumMember ? 'Premium' : 'Join'}</span>
-            </Link>
+            {isAuthenticated ? (
+              <div className="relative">
+                <button type="button" onClick={() => setAccountMenuOpen((prev) => !prev)} className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 ${isDark ? 'border-white/10 bg-white/5 text-slate-100' : 'border-slate-300/70 bg-white/70 text-slate-700'}`}>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 text-sm text-white">👤</span>
+                  <span className="hidden sm:inline">My Account</span>
+                </button>
+
+                {accountMenuOpen ? (
+                  <div className={`absolute right-0 top-full mt-3 w-56 rounded-[1.25rem] border p-3 shadow-2xl backdrop-blur-xl ${isDark ? 'border-white/10 bg-slate-950/95' : 'border-slate-200 bg-white/95'}`}>
+                    <div className="space-y-1">
+                      {[
+                        ['Profile', '/membership'],
+                        ['Saved Articles', '/search'],
+                        ['Notifications', '/membership'],
+                        ['Settings', '/contact'],
+                        ['Membership (Free)', '/membership/free'],
+                      ].map(([label, href]) => (
+                        <Link key={label} to={href} onClick={() => setAccountMenuOpen(false)} className={`block rounded-full px-3 py-2 text-sm transition ${isDark ? 'text-slate-200 hover:bg-white/5 hover:text-cyan-300' : 'text-slate-700 hover:bg-slate-100 hover:text-cyan-600'}`}>
+                          {label}
+                        </Link>
+                      ))}
+                      <button type="button" onClick={() => { window.localStorage.removeItem('authToken'); window.location.href = '/'; setAccountMenuOpen(false); }} className={`mt-2 block w-full rounded-full px-3 py-2 text-left text-sm transition ${isDark ? 'text-rose-300 hover:bg-rose-500/10' : 'text-rose-600 hover:bg-rose-50'}`}>
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Link to="/membership" className={`relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-cyan-500 via-sky-500 to-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(14,165,233,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,211,238,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 ${isDark ? 'focus-visible:ring-offset-[#050816]' : 'focus-visible:ring-offset-white'}`} aria-label={isPremiumMember ? 'Open premium membership' : 'Open membership'}>
+                <Crown size={16} className="shrink-0" />
+                <span className="hidden sm:inline">{isPremiumMember ? 'Premium Member' : 'Membership'}</span>
+                <span className="sm:hidden">{isPremiumMember ? 'Premium' : 'Join'}</span>
+              </Link>
+            )}
 
             <div className="relative">
               <button type="button" onClick={toggleNavigationMenu} className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-300/70 bg-white/70 text-slate-700'}`} aria-label="Open navigation" aria-expanded={desktopMenuOpen} aria-controls="site-navigation-panel">
@@ -273,7 +307,9 @@ function App() {
           <Route path="/advertise" element={<AdvertisePage />} />
           <Route path="/membership" element={<MembershipPage />} />
           <Route path="/membership/:plan" element={<MembershipDetailsPage />} />
-          <Route path="/membership/free" element={<MembershipRegisterPage plan="free" />} />
+          <Route path="/membership/free" element={<FreeMembershipDetailsPage />} />
+          <Route path="/membership/free/register" element={<MembershipRegisterPage plan="free" />} />
+          <Route path="/membership/free/success" element={<FreeMembershipSuccessPage />} />
           <Route path="/membership/premium" element={<MembershipRegisterPage plan="premium" />} />
           <Route path="/membership/payment" element={<MembershipPaymentPage />} />
           <Route path="/payment/success" element={<PaymentStatusPage />} />
