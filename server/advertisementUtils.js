@@ -1,6 +1,6 @@
-export const isAdvertisementActive = (advertisement, now = new Date()) => {
+export const getAdvertisementStatus = (advertisement, now = new Date()) => {
   if (!advertisement?.active) {
-    return false;
+    return 'Paused';
   }
 
   const startDate = advertisement.startDate ? new Date(advertisement.startDate) : null;
@@ -8,12 +8,16 @@ export const isAdvertisementActive = (advertisement, now = new Date()) => {
   const currentTime = new Date(now);
 
   if (startDate && currentTime < startDate) {
-    return false;
+    return 'Scheduled';
   }
 
   if (endDate && currentTime > endDate) {
-    return false;
+    return 'Expired';
   }
 
-  return true;
+  return 'Active';
+};
+
+export const isAdvertisementActive = (advertisement, now = new Date()) => {
+  return getAdvertisementStatus(advertisement, now) === 'Active';
 };

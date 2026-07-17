@@ -253,8 +253,14 @@ const AdvertisePage = () => {
           <input value={form.campaignTitle} onChange={(event) => handleFieldChange('campaignTitle', event.target.value)} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Campaign Title" required />
           <textarea value={form.campaignDescription} onChange={(event) => handleFieldChange('campaignDescription', event.target.value)} className="min-h-24 w-full rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none md:col-span-2" placeholder="Campaign Description" required />
           <input value={form.targetAudience} onChange={(event) => handleFieldChange('targetAudience', event.target.value)} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Target Audience" required />
-          <input type="date" value={form.startDate} onChange={(event) => handleFieldChange('startDate', event.target.value)} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" required />
-          <input type="date" value={form.endDate} onChange={(event) => handleFieldChange('endDate', event.target.value)} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" required />
+          <div>
+            <label className="mb-2 block text-sm text-slate-300">From</label>
+            <input type="date" value={form.startDate} onChange={(event) => handleFieldChange('startDate', event.target.value)} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" required />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm text-slate-300">Until</label>
+            <input type="date" value={form.endDate} onChange={(event) => handleFieldChange('endDate', event.target.value)} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" required />
+          </div>
 
           <select value={form.budget} onChange={(event) => handleFieldChange('budget', event.target.value)} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none">
             <option>Under $100</option>

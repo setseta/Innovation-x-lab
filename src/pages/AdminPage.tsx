@@ -66,10 +66,23 @@ type Advertisement = {
   destinationUrl: string;
   placement: string;
   image?: string;
+  videoUrl?: string;
+  gifUrl?: string;
+  logoUrl?: string;
   active: boolean;
   startDate: string;
   endDate: string;
   description?: string;
+  ctaText?: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  mediaType?: string;
+  priority?: number;
+  maxImpressions?: number;
+  maxClicks?: number;
+  impressions?: number;
+  clicks?: number;
   status?: string;
 };
 
@@ -121,12 +134,24 @@ const AdminPage = () => {
     title: '',
     advertiserName: '',
     destinationUrl: '',
-    placement: 'homepage-banner',
+    placement: 'hero-banner',
     image: '',
+    videoUrl: '',
+    gifUrl: '',
+    logoUrl: '',
     active: true,
     startDate: '',
     endDate: '',
     description: '',
+    ctaText: 'Learn more',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    mediaType: 'image',
+    priority: '0',
+    maxImpressions: '0',
+    maxClicks: '0',
+    status: 'Active',
   });
   const [token, setToken] = useState('');
   const [authError, setAuthError] = useState('');
@@ -287,12 +312,24 @@ const AdminPage = () => {
         title: '',
         advertiserName: '',
         destinationUrl: '',
-        placement: 'homepage-banner',
+        placement: 'hero-banner',
         image: '',
+        videoUrl: '',
+        gifUrl: '',
+        logoUrl: '',
         active: true,
         startDate: '',
         endDate: '',
         description: '',
+        ctaText: 'Learn more',
+        contactPerson: '',
+        email: '',
+        phone: '',
+        mediaType: 'image',
+        priority: '0',
+        maxImpressions: '0',
+        maxClicks: '0',
+        status: 'Active',
       });
     }
   };
@@ -609,25 +646,51 @@ const AdminPage = () => {
           <div className="mt-10 rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
             <h2 className="text-2xl font-semibold text-white">Advertisements</h2>
             <form onSubmit={handleAdvertisementSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
-              <input value={adForm.title} onChange={(event) => setAdForm({ ...adForm, title: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Campaign title" />
-              <input value={adForm.advertiserName} onChange={(event) => setAdForm({ ...adForm, advertiserName: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Advertiser name" />
+              <input value={adForm.title} onChange={(event) => setAdForm({ ...adForm, title: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Advertisement title" />
+              <input value={adForm.advertiserName} onChange={(event) => setAdForm({ ...adForm, advertiserName: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Company name" />
               <input value={adForm.destinationUrl} onChange={(event) => setAdForm({ ...adForm, destinationUrl: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Destination URL" />
+              <input value={adForm.ctaText} onChange={(event) => setAdForm({ ...adForm, ctaText: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="CTA text" />
               <select value={adForm.placement} onChange={(event) => setAdForm({ ...adForm, placement: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none">
+                <option value="hero-banner">Hero banner</option>
                 <option value="homepage-banner">Homepage banner</option>
+                <option value="between-articles">Between articles</option>
+                <option value="story-card">Sponsored story</option>
                 <option value="article-page">Article page</option>
                 <option value="sidebar">Sidebar</option>
                 <option value="newsletter-sponsorship">Newsletter sponsorship</option>
               </select>
+              <select value={adForm.mediaType} onChange={(event) => setAdForm({ ...adForm, mediaType: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none">
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+                <option value="gif">GIF</option>
+                <option value="html5">Animated HTML5</option>
+              </select>
               <div className="flex flex-col gap-3 sm:flex-row md:col-span-2">
-                <input value={adForm.image} onChange={(event) => setAdForm({ ...adForm, image: event.target.value })} className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Banner image URL" />
+                <input value={adForm.image} onChange={(event) => setAdForm({ ...adForm, image: event.target.value })} className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Image URL" />
                 <label className="cursor-pointer rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 transition hover:bg-white/10">
                   <input type="file" accept="image/*" className="hidden" onChange={handleUploadAdvertisementImage} />
-                  {uploadingAdImage ? 'Uploading…' : 'Upload banner'}
+                  {uploadingAdImage ? 'Uploading…' : 'Upload image'}
                 </label>
               </div>
+              <input value={adForm.videoUrl} onChange={(event) => setAdForm({ ...adForm, videoUrl: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="MP4 or YouTube/Vimeo URL" />
+              <input value={adForm.gifUrl} onChange={(event) => setAdForm({ ...adForm, gifUrl: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="GIF URL" />
+              <input value={adForm.logoUrl} onChange={(event) => setAdForm({ ...adForm, logoUrl: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Logo URL" />
+              <input value={adForm.contactPerson} onChange={(event) => setAdForm({ ...adForm, contactPerson: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Contact person" />
+              <input value={adForm.email} onChange={(event) => setAdForm({ ...adForm, email: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Contact email" />
+              <input value={adForm.phone} onChange={(event) => setAdForm({ ...adForm, phone: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Contact phone" />
+              <input type="number" value={adForm.priority} onChange={(event) => setAdForm({ ...adForm, priority: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Priority" />
+              <input type="number" value={adForm.maxImpressions} onChange={(event) => setAdForm({ ...adForm, maxImpressions: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Max impressions" />
+              <input type="number" value={adForm.maxClicks} onChange={(event) => setAdForm({ ...adForm, maxClicks: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Max clicks" />
               <input type="date" value={adForm.startDate} onChange={(event) => setAdForm({ ...adForm, startDate: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" />
               <input type="date" value={adForm.endDate} onChange={(event) => setAdForm({ ...adForm, endDate: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" />
-              <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={adForm.active} onChange={(event) => setAdForm({ ...adForm, active: event.target.checked })} /> Active campaign</label>
+              <select value={adForm.status} onChange={(event) => setAdForm({ ...adForm, status: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none">
+                <option value="Active">Active</option>
+                <option value="Scheduled">Scheduled</option>
+                <option value="Paused">Paused</option>
+                <option value="Draft">Draft</option>
+                <option value="Expired">Expired</option>
+              </select>
+              <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={adForm.active} onChange={(event) => setAdForm({ ...adForm, active: event.target.checked })} /> Visible on site</label>
               <textarea value={adForm.description} onChange={(event) => setAdForm({ ...adForm, description: event.target.value })} className="min-h-24 w-full rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none md:col-span-2" placeholder="Short promotional note" />
               <div className="md:col-span-2">
                 <button type="submit" className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white">Create advertisement</button>
@@ -640,7 +703,11 @@ const AdminPage = () => {
                     <div>
                       <div className="font-semibold text-white">{advertisement.title}</div>
                       <div className="mt-1 text-sm text-slate-400">{advertisement.advertiserName} • {advertisement.placement}</div>
-                      <div className="mt-2 text-xs uppercase tracking-[0.2em] text-cyan-300">{advertisement.status}</div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs uppercase tracking-[0.2em] text-cyan-300">
+                        <span>{advertisement.status}</span>
+                        {advertisement.impressions ? <span>Impressions {advertisement.impressions}</span> : null}
+                        {advertisement.clicks ? <span>Clicks {advertisement.clicks}</span> : null}
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-cyan-300">
                       <button type="button" onClick={() => handleToggleAdvertisement(advertisement)} className="rounded-full border border-white/10 px-3 py-1">{advertisement.active ? 'Deactivate' : 'Activate'}</button>

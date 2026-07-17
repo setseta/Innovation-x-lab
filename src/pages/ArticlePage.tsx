@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Crown, Facebook, Linkedin, Share2, Twitter } from 'lucide-react';
+import AdvertisementCard from '../components/AdvertisementCard';
 import { buildApiUrl } from '../config/api';
 
 type Article = {
@@ -33,6 +34,7 @@ const ArticlePage = () => {
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [articleAds, setArticleAds] = useState<Advertisement[]>([]);
   const [sidebarAds, setSidebarAds] = useState<Advertisement[]>([]);
+  const [betweenParagraphAds, setBetweenParagraphAds] = useState<Advertisement[]>([]);
   const [loading, setLoading] = useState(true);
   const [premiumMessage, setPremiumMessage] = useState('');
   const [token] = useState<string | null>(() => {
@@ -65,14 +67,17 @@ const ArticlePage = () => {
           const relatedData = await relatedResponse.json();
           setRelatedArticles((Array.isArray(relatedData) ? relatedData : []).filter((entry: Article) => entry.slug !== slug).slice(0, 3));
 
-          const [articleAdsResponse, sidebarAdsResponse] = await Promise.all([
+          const [articleAdsResponse, sidebarAdsResponse, betweenAdsResponse] = await Promise.all([
             fetch(buildApiUrl('/api/advertisements?placement=article-page')),
             fetch(buildApiUrl('/api/advertisements?placement=sidebar')),
+            fetch(buildApiUrl('/api/advertisements?placement=between-articles')),
           ]);
           const articleAdsData = await articleAdsResponse.json();
           const sidebarAdsData = await sidebarAdsResponse.json();
+          const betweenAdsData = await betweenAdsResponse.json();
           setArticleAds(Array.isArray(articleAdsData) ? articleAdsData : []);
           setSidebarAds(Array.isArray(sidebarAdsData) ? sidebarAdsData : []);
+          setBetweenParagraphAds(Array.isArray(betweenAdsData) ? betweenAdsData : []);
         }
       } catch (error) {
         console.error(error);
@@ -105,6 +110,13 @@ const ArticlePage = () => {
     return <Navigate to="/" replace />;
   }
 
+  const paragraphs = useMemo(() => (article.content || '').split(/\n{2,}/).filter(Boolean), [article.content]);
+  const contentWithAds = paragraphs.flatMap((paragraph, index) => {
+    const contentNode = <p key={`paragraph-${index}`} className="mb-5 text-lg leading-8 text-slate-300">{paragraph}</p>;
+    const insertion = index > 0 && index % 3 === 0 && betweenParagraphAds[0] ? [contentNode, <div key={`ad-${index}`} className="my-6"><AdvertisementCard advertisement={betweenParagraphAds[0]} variant="inline" className="border-cyan-400/20" /></div>] : [contentNode];
+    return insertion;
+  });
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
       <Helmet>
@@ -126,7 +138,7 @@ const ArticlePage = () => {
           </div>
           {article.image ? <img src={article.image} alt={article.title} className="mt-8 h-72 w-full rounded-[1.5rem] object-cover" /> : null}
           <p className="mt-8 text-lg leading-8 text-slate-300">{article.description}</p>
-          <div className="mt-6 whitespace-pre-line text-lg leading-8 text-slate-300">{article.content}</div>
+          <div className="mt-6">{contentWithAds}</div>
           <div className="mt-8 flex flex-wrap gap-3">
             <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Twitter size={16} /></button>
             <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Facebook size={16} /></button>
@@ -167,19 +179,14 @@ const ArticlePage = () => {
             </div>
           ) : null}
           {sidebarAds.length > 0 ? (
-            <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
-              <h3 className="text-xl font-semibold text-white">Featured Partner</h3>
-              <div className="mt-4 space-y-3">
-                {sidebarAds.map((ad) => (
-                  <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="block rounded-2xl border border-white/10 bg-white/5 p-4">
-                    {ad.image ? <img src={ad.image} alt={ad.title} className="h-20 w-full rounded-xl object-cover" /> : null}
-                    <div className="mt-3">
-                      <div className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">Sidebar</div>
-                      <h4 className="mt-2 text-base font-semibold text-white">{ad.title}</h4>
-                      {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
-                    </div>
-                  </a>
-                ))}
+            <div className="hidden lg:block">
+              <div className="sticky top-24 rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6 shadow-[0_0_30px_rgba(34,211,238,0.08)]">
+                <h3 className="text-xl font-semibold text-white">Featured Partner</h3>
+                <div className="mt-4 space-y-3">
+                  {sidebarAds.map((ad) => (
+                    <AdvertisementCard key={ad._id} advertisement={ad} variant="sidebar" className="border-white/10 bg-slate-950/70" />
+                  ))}
+                </div>
               </div>
             </div>
           ) : null}

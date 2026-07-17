@@ -3,6 +3,7 @@ import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Zap } from 'lucide-react
 import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import AdvertisementCard from '../components/AdvertisementCard';
 import { buildApiUrl } from '../config/api';
 
 type Article = {
@@ -32,7 +33,9 @@ const HomePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [articles, setArticles] = useState<Article[]>([]);
+  const [heroAds, setHeroAds] = useState<Advertisement[]>([]);
   const [homepageAds, setHomepageAds] = useState<Advertisement[]>([]);
+  const [storyAds, setStoryAds] = useState<Advertisement[]>([]);
   const [newsletterAds, setNewsletterAds] = useState<Advertisement[]>([]);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
@@ -97,13 +100,19 @@ const HomePage = () => {
     fetchArticles();
     const fetchAds = async () => {
       try {
-        const [homepageResponse, newsletterResponse] = await Promise.all([
+        const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
+          fetch(buildApiUrl('/api/advertisements?placement=hero-banner')),
           fetch(buildApiUrl('/api/advertisements?placement=homepage-banner')),
+          fetch(buildApiUrl('/api/advertisements?placement=story-card')),
           fetch(buildApiUrl('/api/advertisements?placement=newsletter-sponsorship')),
         ]);
+        const heroData = await heroResponse.json();
         const homepageData = await homepageResponse.json();
+        const storyData = await storyResponse.json();
         const newsletterData = await newsletterResponse.json();
+        setHeroAds(Array.isArray(heroData) ? heroData : []);
         setHomepageAds(Array.isArray(homepageData) ? homepageData : []);
+        setStoryAds(Array.isArray(storyData) ? storyData : []);
         setNewsletterAds(Array.isArray(newsletterData) ? newsletterData : []);
       } catch (error) {
         console.error(error);
@@ -225,19 +234,11 @@ const HomePage = () => {
         </div>
       </section>
 
-      {homepageAds.length > 0 ? (
-        <section className="mx-auto max-w-7xl px-4 pb-4 pt-6 sm:px-6 lg:px-8 lg:pb-6 lg:pt-8">
-          <div className="rounded-[2rem] border border-cyan-400/20 bg-slate-900/75 p-4 shadow-[0_0_45px_rgba(34,211,238,0.08)] sm:p-6">
-            {homepageAds.map((ad) => (
-              <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-[1.4rem] border border-white/10 bg-gradient-to-r from-cyan-500/10 to-violet-500/10">
-                {ad.image ? <img src={ad.image} alt={ad.title} className="h-48 w-full object-cover" /> : null}
-                <div className="p-5">
-                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300">Sponsored</p>
-                  <h3 className="mt-2 text-xl font-semibold text-white">{ad.title}</h3>
-                  {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
-                  <p className="mt-3 text-sm text-cyan-300">{ad.advertiserName}</p>
-                </div>
-              </a>
+      {heroAds.length > 0 ? (
+        <section className="mx-auto max-w-7xl px-4 pb-2 pt-4 sm:px-6 lg:px-8 lg:pb-4 lg:pt-6">
+          <div className="overflow-hidden rounded-[2rem] border border-cyan-400/20 bg-slate-900/75 p-3 shadow-[0_0_45px_rgba(34,211,238,0.08)] sm:p-4">
+            {heroAds.map((ad) => (
+              <AdvertisementCard key={ad._id} advertisement={ad} variant="hero" className="rounded-[1.6rem]" />
             ))}
           </div>
         </section>
@@ -259,27 +260,34 @@ const HomePage = () => {
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-2">
-            {articles.slice(0, 6).map((release, index) => (
-              <motion.article key={release.slug} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
-                <div className="overflow-hidden">
-                  <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+            {articles.slice(0, 6).map((release, index) => {
+              const adIndex = index + 1;
+              const shouldShowAd = adIndex % 2 === 0 && homepageAds[0];
+              return (
+                <div key={release.slug} className="space-y-6">
+                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
+                    <div className="overflow-hidden">
+                      <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{release.category}</span>
+                        <span className="text-sm text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
+                      </div>
+                      <h3 className="mt-4 text-xl font-semibold text-white">{release.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-400">{release.description}</p>
+                      <div className="mt-5 flex items-center justify-between text-sm text-slate-400">
+                        <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                        <Link to={`/articles/${release.slug}`} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition group-hover:gap-3">
+                          Read now <ArrowRight size={14} />
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.article>
+                  {shouldShowAd && homepageAds[0] ? <AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-cyan-400/20" /> : null}
                 </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{release.category}</span>
-                    <span className="text-sm text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
-                  </div>
-                  <h3 className="mt-4 text-xl font-semibold text-white">{release.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-400">{release.description}</p>
-                  <div className="mt-5 flex items-center justify-between text-sm text-slate-400">
-                    <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
-                    <Link to={`/articles/${release.slug}`} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition group-hover:gap-3">
-                      Read now <ArrowRight size={14} />
-                    </Link>
-                  </div>
-                </div>
-              </motion.article>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -302,27 +310,33 @@ const HomePage = () => {
           </div>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {featuredStories.map((story) => (
-            <Link key={story.slug} to={`/articles/${story.slug}`} className="group block">
-              <motion.article whileHover={{ y: -6, scale: 1.01 }} className="group relative h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-slate-900/80 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] transition-all duration-300 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
-                <div className="overflow-hidden">
-                  <img src={story.image || '/placeholder.jpg'} alt={story.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{story.category}</span>
-                    <span className="text-sm text-slate-500">{story.createdAt ? new Date(story.createdAt).toLocaleDateString() : 'New'}</span>
-                  </div>
-                  <h3 className="mt-4 text-xl font-semibold text-white">{story.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-slate-400">{story.description}</p>
-                  <div className="mt-6 flex items-center justify-between text-sm text-slate-400">
-                    <span>{story.author || 'Innovation X Lab'}</span>
-                    <span className="inline-flex items-center gap-2 text-cyan-300">Read story <ArrowRight size={14} /></span>
-                  </div>
-                </div>
-              </motion.article>
-            </Link>
-          ))}
+          {featuredStories.map((story, index) => {
+            const shouldShowStoryAd = index === 1 && storyAds[0];
+            return (
+              <div key={story.slug} className="space-y-6">
+                <Link to={`/articles/${story.slug}`} className="group block">
+                  <motion.article whileHover={{ y: -6, scale: 1.01 }} className="group relative h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-slate-900/80 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] transition-all duration-300 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
+                    <div className="overflow-hidden">
+                      <img src={story.image || '/placeholder.jpg'} alt={story.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{story.category}</span>
+                        <span className="text-sm text-slate-500">{story.createdAt ? new Date(story.createdAt).toLocaleDateString() : 'New'}</span>
+                      </div>
+                      <h3 className="mt-4 text-xl font-semibold text-white">{story.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-400">{story.description}</p>
+                      <div className="mt-6 flex items-center justify-between text-sm text-slate-400">
+                        <span>{story.author || 'Innovation X Lab'}</span>
+                        <span className="inline-flex items-center gap-2 text-cyan-300">Read story <ArrowRight size={14} /></span>
+                      </div>
+                    </div>
+                  </motion.article>
+                </Link>
+                {shouldShowStoryAd && storyAds[0] ? <AdvertisementCard advertisement={storyAds[0]} variant="story" className="border-cyan-400/20" /> : null}
+              </div>
+            );
+          })}
         </div>
         {filteredStories.length === 0 && <p className="mt-6 text-sm text-slate-400">No stories match that search yet. Try a different term or category.</p>}
       </section>
@@ -439,14 +453,7 @@ const HomePage = () => {
           {newsletterAds.length > 0 ? (
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               {newsletterAds.map((ad) => (
-                <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="rounded-[1.3rem] border border-white/10 bg-slate-950/70 p-4">
-                  {ad.image ? <img src={ad.image} alt={ad.title} className="h-24 w-full rounded-xl object-cover" /> : null}
-                  <div className="mt-3">
-                    <div className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">Sponsored</div>
-                    <h3 className="mt-2 text-lg font-semibold text-white">{ad.title}</h3>
-                    {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
-                  </div>
-                </a>
+                <AdvertisementCard key={ad._id} advertisement={ad} variant="newsletter" className="border-white/10 bg-slate-950/70" />
               ))}
             </div>
           ) : null}

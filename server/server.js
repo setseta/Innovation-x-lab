@@ -157,13 +157,30 @@ const advertisementSchema = new mongoose.Schema({
   placement: {
     type: String,
     required: true,
-    enum: ['homepage-banner', 'article-page', 'sidebar', 'newsletter-sponsorship'],
+    enum: ['hero-banner', 'homepage-banner', 'article-page', 'sidebar', 'newsletter-sponsorship', 'story-card', 'between-articles'],
   },
   image: { type: String, default: '' },
+  videoUrl: { type: String, default: '' },
+  gifUrl: { type: String, default: '' },
+  logoUrl: { type: String, default: '' },
   active: { type: Boolean, default: true },
   startDate: { type: Date, default: Date.now },
   endDate: { type: Date, required: true },
   description: { type: String, default: '' },
+  ctaText: { type: String, default: 'Learn more' },
+  contactPerson: { type: String, default: '' },
+  email: { type: String, default: '' },
+  phone: { type: String, default: '' },
+  mediaType: { type: String, default: 'image' },
+  priority: { type: Number, default: 0 },
+  maxImpressions: { type: Number, default: 0 },
+  maxClicks: { type: Number, default: 0 },
+  impressions: { type: Number, default: 0 },
+  uniqueViews: { type: Number, default: 0 },
+  clicks: { type: Number, default: 0 },
+  countries: [{ type: String }],
+  devices: [{ type: String }],
+  status: { type: String, enum: ['Draft', 'Scheduled', 'Active', 'Paused', 'Expired'], default: 'Active' },
 }, { timestamps: true });
 
 const advertisingRequestSchema = new mongoose.Schema({
@@ -805,7 +822,7 @@ app.get('/api/advertisements', async (req, res) => {
     query.placement = String(placement);
   }
 
-  const advertisements = await Advertisement.find(query).sort({ createdAt: -1 }).lean();
+  const advertisements = await Advertisement.find(query).sort({ priority: -1, createdAt: -1 }).lean();
   const visibleAdvertisements = advertisements.filter((advertisement) => isAdvertisementActive(advertisement));
   res.json(visibleAdvertisements);
 });
@@ -825,10 +842,22 @@ app.post('/api/admin/advertisements', authenticate, requireAdmin, async (req, re
     destinationUrl,
     placement,
     image,
+    videoUrl,
+    gifUrl,
+    logoUrl,
     active,
     startDate,
     endDate,
     description,
+    ctaText,
+    contactPerson,
+    email,
+    phone,
+    mediaType,
+    priority,
+    maxImpressions,
+    maxClicks,
+    status,
   } = req.body;
 
   if (!title || !advertiserName || !destinationUrl || !placement || !endDate) {
@@ -841,10 +870,22 @@ app.post('/api/admin/advertisements', authenticate, requireAdmin, async (req, re
     destinationUrl,
     placement,
     image: image || '',
+    videoUrl: videoUrl || '',
+    gifUrl: gifUrl || '',
+    logoUrl: logoUrl || '',
     active: Boolean(active),
     startDate: startDate ? new Date(startDate) : new Date(),
     endDate: new Date(endDate),
     description: description || '',
+    ctaText: ctaText || 'Learn more',
+    contactPerson: contactPerson || '',
+    email: email || '',
+    phone: phone || '',
+    mediaType: mediaType || 'image',
+    priority: Number(priority) || 0,
+    maxImpressions: Number(maxImpressions) || 0,
+    maxClicks: Number(maxClicks) || 0,
+    status: status || 'Active',
   });
 
   res.status(201).json(advertisement);
@@ -862,10 +903,22 @@ app.put('/api/admin/advertisements/:id', authenticate, requireAdmin, async (req,
     destinationUrl,
     placement,
     image,
+    videoUrl,
+    gifUrl,
+    logoUrl,
     active,
     startDate,
     endDate,
     description,
+    ctaText,
+    contactPerson,
+    email,
+    phone,
+    mediaType,
+    priority,
+    maxImpressions,
+    maxClicks,
+    status,
   } = req.body;
 
   if (title !== undefined) advertisement.title = title;
@@ -873,10 +926,22 @@ app.put('/api/admin/advertisements/:id', authenticate, requireAdmin, async (req,
   if (destinationUrl !== undefined) advertisement.destinationUrl = destinationUrl;
   if (placement !== undefined) advertisement.placement = placement;
   if (image !== undefined) advertisement.image = image;
+  if (videoUrl !== undefined) advertisement.videoUrl = videoUrl;
+  if (gifUrl !== undefined) advertisement.gifUrl = gifUrl;
+  if (logoUrl !== undefined) advertisement.logoUrl = logoUrl;
   if (active !== undefined) advertisement.active = Boolean(active);
   if (startDate !== undefined) advertisement.startDate = startDate ? new Date(startDate) : new Date();
   if (endDate !== undefined) advertisement.endDate = new Date(endDate);
   if (description !== undefined) advertisement.description = description;
+  if (ctaText !== undefined) advertisement.ctaText = ctaText;
+  if (contactPerson !== undefined) advertisement.contactPerson = contactPerson;
+  if (email !== undefined) advertisement.email = email;
+  if (phone !== undefined) advertisement.phone = phone;
+  if (mediaType !== undefined) advertisement.mediaType = mediaType;
+  if (priority !== undefined) advertisement.priority = Number(priority) || 0;
+  if (maxImpressions !== undefined) advertisement.maxImpressions = Number(maxImpressions) || 0;
+  if (maxClicks !== undefined) advertisement.maxClicks = Number(maxClicks) || 0;
+  if (status !== undefined) advertisement.status = status;
 
   await advertisement.save();
   res.json(advertisement);
@@ -887,6 +952,33 @@ app.delete('/api/admin/advertisements/:id', authenticate, requireAdmin, async (r
   if (!advertisement) {
     return res.status(404).json({ error: 'Advertisement not found' });
   }
+  res.json({ success: true });
+});
+
+app.post('/api/advertisements/:id/track', async (req, res) => {
+  const advertisement = await Advertisement.findById(req.params.id);
+  if (!advertisement) {
+    return res.status(404).json({ error: 'Advertisement not found' });
+  }
+
+  const { event = 'impression' } = req.body || {};
+  if (event === 'click') {
+    advertisement.clicks += 1;
+  } else {
+    advertisement.impressions += 1;
+  }
+
+  if (advertisement.maxImpressions && advertisement.impressions >= advertisement.maxImpressions) {
+    advertisement.active = false;
+    advertisement.status = 'Expired';
+  }
+
+  if (advertisement.maxClicks && advertisement.clicks >= advertisement.maxClicks) {
+    advertisement.active = false;
+    advertisement.status = 'Expired';
+  }
+
+  await advertisement.save();
   res.json({ success: true });
 });
 

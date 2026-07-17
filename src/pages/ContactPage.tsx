@@ -14,8 +14,7 @@ const ContactPage = () => {
           <p className="mt-6 text-lg text-slate-300">Whether you are a founder, partner, creator, or curious reader, we would love to hear from you.</p>
           <div className="mt-8 space-y-3 text-slate-400">
             <p>hello@innovationxlab.com</p>
-            <p>+1 (555) 014-7890</p>
-            <p>Global HQ · Austin, TX</p>
+            <p>Gobal</p>
           </div>
         </div>
         <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
