@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Crown, Facebook, Linkedin, Share2, Twitter } from 'lucide-react';
+import { ArrowRight, Crown } from 'lucide-react';
 import AdvertisementCard from '../components/AdvertisementCard';
+import SocialIcons from '../components/SocialIcons';
 import { buildApiUrl } from '../config/api';
 
 type Article = {
@@ -16,6 +17,7 @@ type Article = {
   author?: string;
   premium?: boolean;
   createdAt?: string;
+  tags?: string[];
 };
 
 type Advertisement = {
@@ -34,6 +36,7 @@ const ArticlePage = () => {
   const fallbackArticle = (location.state as { article?: Article } | null)?.article ?? null;
   const [article, setArticle] = useState<Article | null>(fallbackArticle);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+  const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [articleAds, setArticleAds] = useState<Advertisement[]>([]);
   const [sidebarAds, setSidebarAds] = useState<Advertisement[]>([]);
   const [betweenParagraphAds, setBetweenParagraphAds] = useState<Advertisement[]>([]);
@@ -79,9 +82,19 @@ const ArticlePage = () => {
           setPremiumMessage('');
           setErrorMessage('');
 
-          const relatedResponse = await fetch(buildApiUrl('/api/articles?published=true&limit=4'));
+          const relatedResponse = await fetch(buildApiUrl('/api/articles?published=true&limit=12'));
           const relatedData = await relatedResponse.json();
-          setRelatedArticles((Array.isArray(relatedData) ? relatedData : []).filter((entry: Article) => entry.slug !== slug).slice(0, 3));
+          const list = Array.isArray(relatedData) ? relatedData : [];
+          setAllArticles(list);
+          const baseRelated = list.filter((entry: Article) => entry.slug !== slug);
+          const currentCategory = data.category || '';
+          const currentTags = Array.isArray(data.tags) ? data.tags : [];
+          const scored = baseRelated.map((entry: Article) => {
+            const categoryScore = entry.category === currentCategory ? 3 : 0;
+            const tagScore = (entry.tags || []).reduce<number>((sum, tag) => sum + (currentTags.includes(tag) ? 1 : 0), 0);
+            return { entry, score: categoryScore + tagScore };
+          }).sort((left, right) => right.score - left.score || (new Date(right.entry.createdAt || 0).getTime() - new Date(left.entry.createdAt || 0).getTime()));
+          setRelatedArticles(scored.slice(0, 4).map(({ entry }) => entry));
 
           const [articleAdsResponse, sidebarAdsResponse, betweenAdsResponse] = await Promise.all([
             fetch(buildApiUrl('/api/advertisements?placement=article-page')),
@@ -117,6 +130,9 @@ const ArticlePage = () => {
   }, [fallbackArticle, slug, token]);
 
   const paragraphs = useMemo(() => (article?.content || '').split(/\n{2,}/).filter(Boolean), [article?.content]);
+  const currentIndex = allArticles.findIndex((entry) => entry.slug === article?.slug);
+  const previousArticle = currentIndex > 0 ? allArticles[currentIndex - 1] : null;
+  const nextArticle = currentIndex >= 0 && currentIndex < allArticles.length - 1 ? allArticles[currentIndex + 1] : null;
   const contentWithAds = useMemo(() => paragraphs.flatMap((paragraph, index) => {
     const contentNode = <p key={`paragraph-${index}`} className="mb-5 text-lg leading-8 text-slate-300">{paragraph}</p>;
     const insertion = index > 0 && index % 3 === 0 && betweenParagraphAds[0] ? [contentNode, <div key={`ad-${index}`} className="my-6"><AdvertisementCard advertisement={betweenParagraphAds[0]} variant="inline" className="border-cyan-400/20" /></div>] : [contentNode];
@@ -175,10 +191,19 @@ const ArticlePage = () => {
           <p className="mt-8 text-lg leading-8 text-slate-300">{article.description}</p>
           <div className="mt-6">{contentWithAds}</div>
           <div className="mt-8 flex flex-wrap gap-3">
-            <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Twitter size={16} /></button>
-            <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Facebook size={16} /></button>
-            <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Linkedin size={16} /></button>
-            <button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300"><Share2 size={16} /></button>
+            <SocialIcons className="gap-3" />
+          </div>
+          <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            {previousArticle ? (
+              <Link to={`/articles/${previousArticle.slug}`} state={{ article: previousArticle }} className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 font-semibold text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300">
+                <ArrowRight size={14} className="rotate-180" /> Previous Article
+              </Link>
+            ) : <span className="text-sm text-slate-500">You’re at the newest story.</span>}
+            {nextArticle ? (
+              <Link to={`/articles/${nextArticle.slug}`} state={{ article: nextArticle }} className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-4 py-3 font-semibold text-white">
+                Next Article <ArrowRight size={14} />
+              </Link>
+            ) : <span className="text-sm text-slate-500">This is the latest story in the feed.</span>}
           </div>
         </article>
 

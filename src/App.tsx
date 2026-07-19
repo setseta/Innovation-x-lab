@@ -4,7 +4,7 @@ import { ArrowUp, ChevronDown, Crown, Menu, Moon, Search, Sun } from 'lucide-rea
 import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { labSections } from './data/content';
-import { socialLinks } from './config/social';
+import SocialIcons from './components/SocialIcons';
 import HomePage from './pages/HomePage';
 import ReviewPage from './pages/ReviewPage';
 import ArticlePage from './pages/ArticlePage';
@@ -330,18 +330,7 @@ function App() {
             <div className="mt-6">
               <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Follow Innovation X Lab</h4>
               <div className="mt-4 flex flex-wrap justify-center gap-3 sm:justify-start">
-                {socialLinks.map(({ href, icon: Icon, ariaLabel, label }) => (
-                  <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={ariaLabel}
-                    className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 bg-slate-900/90 text-slate-100 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] transition duration-300 hover:scale-110 hover:border-blue-400/50 hover:text-blue-400 hover:shadow-[0_0_20px_rgba(37,99,235,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 cursor-pointer`}
-                  >
-                    <Icon size={18} className="transition duration-300" />
-                  </a>
-                ))}
+                <SocialIcons />
               </div>
             </div>
           </div>

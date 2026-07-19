@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Zap } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import AdvertisementCard from '../components/AdvertisementCard';
@@ -39,6 +39,8 @@ const HomePage = () => {
   const [newsletterAds, setNewsletterAds] = useState<Advertisement[]>([]);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
+  const [visibleOlderCount, setVisibleOlderCount] = useState(4);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const categories = ['All', 'AI Lab', 'Gadget Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
 
@@ -131,8 +133,44 @@ const HomePage = () => {
     });
   }, [searchTerm, articles]);
 
+  const featuredArticle = filteredStories[0] ?? null;
   const featuredStories = filteredStories.slice(0, 6);
+  const latestArticles = filteredStories.slice(1, 6);
+  const olderArticles = filteredStories.slice(6);
+  const visibleOlderArticles = olderArticles.slice(0, visibleOlderCount);
   const trendingArticles = filteredStories.slice(0, 3);
+
+  const getPreviewText = (content?: string) => {
+    const blocks = (content || '').split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
+    const previewBlocks = blocks.slice(0, 2);
+    const previewText = previewBlocks.join(' ').trim();
+    if (!previewText) {
+      return '';
+    }
+    return previewText.length > 360 ? `${previewText.slice(0, 360)}…` : previewText;
+  };
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || visibleOlderArticles.length >= olderArticles.length) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+          setVisibleOlderCount((current) => Math.min(current + 3, olderArticles.length));
+        });
+      },
+      { rootMargin: '240px' },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [olderArticles.length, visibleOlderArticles.length]);
 
   const handleNewsletterSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -249,20 +287,77 @@ const HomePage = () => {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
-                Latest Releases
+                Featured Latest Article
               </div>
-              <h2 className="mt-4 text-3xl font-semibold text-white">A premium feed of what changed this week</h2>
-              <p className="mt-3 max-w-2xl text-base text-slate-400">From AI updates to new launches and startup momentum, this section brings the energy of a modern technology newsroom to the homepage.</p>
+              <h2 className="mt-4 text-3xl font-semibold text-white">The newest story leads the homepage</h2>
+              <p className="mt-3 max-w-2xl text-base text-slate-400">The latest publication is highlighted as the featured article, while the next set of stories rolls down in a polished, publication-style feed.</p>
             </div>
             <Link to="/review" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 transition hover:text-cyan-200">
               Explore all stories <ArrowRight size={16} />
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-6 xl:grid-cols-2">
-            {articles.slice(0, 6).map((release, index) => {
-              const adIndex = index + 1;
-              const shouldShowAd = adIndex % 2 === 0 && homepageAds[0];
+          {featuredArticle ? (
+            <motion.article initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-8 overflow-hidden rounded-[1.7rem] border border-white/10 bg-slate-950/80">
+              <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+                <div className="overflow-hidden">
+                  <img src={featuredArticle.image || '/placeholder.jpg'} alt={featuredArticle.title} className="h-full min-h-[320px] w-full object-cover" />
+                </div>
+                <div className="p-6 sm:p-8 lg:p-10">
+                  <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                    <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1">{featuredArticle.category}</span>
+                    <span className="text-slate-500">{featuredArticle.createdAt ? new Date(featuredArticle.createdAt).toLocaleDateString() : 'Just published'}</span>
+                  </div>
+                  <h3 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">{featuredArticle.title}</h3>
+                  <p className="mt-4 text-lg leading-8 text-slate-300">{featuredArticle.description}</p>
+                  <p className="mt-4 text-sm leading-7 text-slate-400">{getPreviewText(featuredArticle.content)}</p>
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-slate-400">
+                    <span>{Math.max(3, Math.ceil(((featuredArticle.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-500">By {featuredArticle.author || 'Innovation X Lab'}</span>
+                      <Link to={`/articles/${featuredArticle.slug}`} state={{ article: featuredArticle }} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-4 py-2.5 font-semibold text-white transition hover:-translate-y-0.5">
+                        Continue Reading <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.article>
+          ) : null}
+
+          <div className="mt-8 grid gap-6 xl:grid-cols-3">
+            {latestArticles.map((release, index) => {
+              const shouldShowAd = homepageAds[0] && (index + 1) % 3 === 0;
+              return (
+                <div key={release.slug} className="space-y-6">
+                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
+                    <div className="overflow-hidden">
+                      <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{release.category}</span>
+                        <span className="text-sm text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
+                      </div>
+                      <h3 className="mt-4 text-xl font-semibold text-white">{release.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-400">{release.description}</p>
+                      <div className="mt-5 flex items-center justify-between text-sm text-slate-400">
+                        <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                        <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition group-hover:gap-3">
+                          Continue Reading <ArrowRight size={14} />
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.article>
+                  {shouldShowAd && homepageAds[0] ? <AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-cyan-400/20" /> : null}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            {visibleOlderArticles.map((release, index) => {
+              const showInlineAd = homepageAds[0] && (index + 1) % 2 === 0;
               return (
                 <div key={release.slug} className="space-y-6">
                   <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
@@ -284,11 +379,13 @@ const HomePage = () => {
                       </div>
                     </div>
                   </motion.article>
-                  {shouldShowAd && homepageAds[0] ? <AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-cyan-400/20" /> : null}
+                  {showInlineAd && homepageAds[0] ? <AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-cyan-400/20" /> : null}
                 </div>
               );
             })}
           </div>
+
+          {visibleOlderArticles.length < olderArticles.length ? <div ref={loadMoreRef} className="mt-6 text-center text-sm text-slate-400">Loading more stories…</div> : null}
         </div>
       </section>
 
