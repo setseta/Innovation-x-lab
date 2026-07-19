@@ -81,7 +81,7 @@ const SearchPage = () => {
             <h2 className="text-xl font-semibold text-white">Articles</h2>
             <div className="mt-6 space-y-4">
               {results.articles.length > 0 ? results.articles.map((article) => (
-                <Link key={article._id} to={`/articles/${article.slug}`} className="block rounded-2xl border border-white/10 bg-slate-900/70 p-5 transition hover:border-cyan-400/40">
+                <Link key={article._id} to={`/articles/${article.slug}`} state={{ article }} className="block rounded-2xl border border-white/10 bg-slate-900/70 p-5 transition hover:border-cyan-400/40">
                   <div className="text-sm uppercase tracking-[0.25em] text-cyan-400">{article.category}</div>
                   <h3 className="mt-2 text-xl font-semibold text-white">{article.title}</h3>
                   <p className="mt-2 text-sm text-slate-400">{article.description}</p>

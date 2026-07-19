@@ -52,7 +52,7 @@ const CategoryPage = ({ category }: { category: string }) => {
         ) : articles.length === 0 ? (
           <p className="text-slate-400">No articles published in this category yet.</p>
         ) : articles.map((article) => (
-          <Link key={article._id} to={`/articles/${article.slug}`} className="block rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
+          <Link key={article._id} to={`/articles/${article.slug}`} state={{ article }} className="block rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
             {article.image ? <img src={article.image} alt={article.title} className="mb-4 h-40 w-full rounded-2xl object-cover" /> : null}
             <h3 className="text-xl font-semibold text-white">{article.title}</h3>
             <p className="mt-3 text-sm text-slate-400">{article.description}</p>

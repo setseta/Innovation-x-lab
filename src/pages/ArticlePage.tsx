@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Crown, Facebook, Linkedin, Share2, Twitter } from 'lucide-react';
 import AdvertisementCard from '../components/AdvertisementCard';
@@ -30,7 +30,9 @@ type Advertisement = {
 
 const ArticlePage = () => {
   const { slug } = useParams<{ slug?: string }>();
-  const [article, setArticle] = useState<Article | null>(null);
+  const location = useLocation();
+  const fallbackArticle = (location.state as { article?: Article } | null)?.article ?? null;
+  const [article, setArticle] = useState<Article | null>(fallbackArticle);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [articleAds, setArticleAds] = useState<Advertisement[]>([]);
   const [sidebarAds, setSidebarAds] = useState<Advertisement[]>([]);
@@ -55,10 +57,17 @@ const ArticlePage = () => {
         return;
       }
 
-      setLoading(true);
-      setArticle(null);
-      setPremiumMessage('');
-      setErrorMessage('');
+      if (fallbackArticle && fallbackArticle.slug === slug) {
+        setArticle(fallbackArticle);
+        setLoading(false);
+        setPremiumMessage('');
+        setErrorMessage('');
+      } else {
+        setLoading(true);
+        setArticle(null);
+        setPremiumMessage('');
+        setErrorMessage('');
+      }
 
       try {
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -87,25 +96,25 @@ const ArticlePage = () => {
           setBetweenParagraphAds(Array.isArray(betweenAdsData) ? betweenAdsData : []);
         } else if (data?.premiumRequired) {
           setPremiumMessage(data.error || 'Unlock this article with Innovation X Premium.');
-          setArticle(null);
+          setArticle(fallbackArticle ?? null);
           setErrorMessage('');
         } else {
           setErrorMessage(data?.error || 'This article could not be loaded right now.');
-          setArticle(null);
+          setArticle(fallbackArticle ?? null);
           setPremiumMessage('');
         }
       } catch (error) {
         console.error(error);
-        setArticle(null);
+        setArticle(fallbackArticle ?? null);
         setPremiumMessage('');
-        setErrorMessage('Unable to load this article right now. Please try again.');
+        setErrorMessage(fallbackArticle ? 'The article preview is available, but the live content could not be refreshed right now.' : 'Unable to load this article right now. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
     loadArticle();
-  }, [slug, token]);
+  }, [fallbackArticle, slug, token]);
 
   if (loading) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-slate-400">Loading article…</div>;
@@ -178,7 +187,7 @@ const ArticlePage = () => {
             <h3 className="text-xl font-semibold text-white">Related Articles</h3>
             <div className="mt-4 space-y-3">
               {relatedArticles.map((related) => (
-                <Link key={related.slug} to={`/articles/${related.slug}`} className="block rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-cyan-400/30 hover:bg-cyan-500/10">
+                <Link key={related.slug} to={`/articles/${related.slug}`} state={{ article: related }} className="block rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-cyan-400/30 hover:bg-cyan-500/10">
                   <div className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{related.category}</div>
                   <h4 className="mt-2 text-base font-semibold text-white">{related.title}</h4>
                   <p className="mt-2 text-sm text-slate-400">{related.description}</p>

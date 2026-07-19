@@ -278,7 +278,7 @@ const HomePage = () => {
                       <p className="mt-3 text-sm leading-6 text-slate-400">{release.description}</p>
                       <div className="mt-5 flex items-center justify-between text-sm text-slate-400">
                         <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
-                        <Link to={`/articles/${release.slug}`} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition group-hover:gap-3">
+                        <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition group-hover:gap-3">
                           Read now <ArrowRight size={14} />
                         </Link>
                       </div>
@@ -314,7 +314,7 @@ const HomePage = () => {
             const shouldShowStoryAd = index === 1 && storyAds[0];
             return (
               <div key={story.slug} className="space-y-6">
-                <Link to={`/articles/${story.slug}`} className="group block">
+                <Link to={`/articles/${story.slug}`} state={{ article: story }} className="group block">
                   <motion.article whileHover={{ y: -6, scale: 1.01 }} className="group relative h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-slate-900/80 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] transition-all duration-300 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
                     <div className="overflow-hidden">
                       <img src={story.image || '/placeholder.jpg'} alt={story.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
@@ -404,7 +404,7 @@ const HomePage = () => {
         </div>
         <div className="grid gap-6 lg:grid-cols-3">
           {trendingArticles.map((article) => (
-            <Link key={article.slug} to={`/articles/${article.slug}`} className="group block">
+            <Link key={article.slug} to={`/articles/${article.slug}`} state={{ article }} className="group block">
               <div className="h-full rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-800/80 p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
                 <img src={article.image || '/placeholder.jpg'} alt={article.title} className="mb-5 h-40 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105" />
                 <div className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">{article.category}</div>
