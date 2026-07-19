@@ -116,6 +116,13 @@ const ArticlePage = () => {
     loadArticle();
   }, [fallbackArticle, slug, token]);
 
+  const paragraphs = useMemo(() => (article?.content || '').split(/\n{2,}/).filter(Boolean), [article?.content]);
+  const contentWithAds = useMemo(() => paragraphs.flatMap((paragraph, index) => {
+    const contentNode = <p key={`paragraph-${index}`} className="mb-5 text-lg leading-8 text-slate-300">{paragraph}</p>;
+    const insertion = index > 0 && index % 3 === 0 && betweenParagraphAds[0] ? [contentNode, <div key={`ad-${index}`} className="my-6"><AdvertisementCard advertisement={betweenParagraphAds[0]} variant="inline" className="border-cyan-400/20" /></div>] : [contentNode];
+    return insertion;
+  }), [paragraphs, betweenParagraphAds]);
+
   if (loading) {
     return <div className="mx-auto max-w-7xl px-4 py-20 text-slate-400">Loading article…</div>;
   }
@@ -144,13 +151,6 @@ const ArticlePage = () => {
       </div>
     );
   }
-
-  const paragraphs = useMemo(() => (article.content || '').split(/\n{2,}/).filter(Boolean), [article.content]);
-  const contentWithAds = paragraphs.flatMap((paragraph, index) => {
-    const contentNode = <p key={`paragraph-${index}`} className="mb-5 text-lg leading-8 text-slate-300">{paragraph}</p>;
-    const insertion = index > 0 && index % 3 === 0 && betweenParagraphAds[0] ? [contentNode, <div key={`ad-${index}`} className="my-6"><AdvertisementCard advertisement={betweenParagraphAds[0]} variant="inline" className="border-cyan-400/20" /></div>] : [contentNode];
-    return insertion;
-  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
