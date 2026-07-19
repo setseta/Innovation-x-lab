@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Crown, Facebook, Linkedin, Share2, Twitter } from 'lucide-react';
 import AdvertisementCard from '../components/AdvertisementCard';
@@ -37,6 +37,7 @@ const ArticlePage = () => {
   const [betweenParagraphAds, setBetweenParagraphAds] = useState<Advertisement[]>([]);
   const [loading, setLoading] = useState(true);
   const [premiumMessage, setPremiumMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [token] = useState<string | null>(() => {
     if (typeof window === 'undefined') {
       return null;
@@ -47,23 +48,29 @@ const ArticlePage = () => {
   useEffect(() => {
     const loadArticle = async () => {
       if (!slug) {
+        setArticle(null);
+        setPremiumMessage('');
+        setErrorMessage('');
         setLoading(false);
         return;
       }
 
+      setLoading(true);
+      setArticle(null);
+      setPremiumMessage('');
+      setErrorMessage('');
+
       try {
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-        const response = await fetch(buildApiUrl(`/api/articles/${slug}`), headers ? { headers } : undefined);
+        const response = await fetch(buildApiUrl(`/api/articles/${encodeURIComponent(slug)}`), headers ? { headers } : undefined);
         const data = await response.json();
+
         if (response.ok && data && !data.error) {
           setArticle(data);
           setPremiumMessage('');
-        } else if (data?.premiumRequired) {
-          setPremiumMessage(data.error || 'Unlock this article with Innovation X Premium.');
-          setArticle(null);
-        }
-        if (data && !data.error) {
-          const relatedResponse = await fetch(buildApiUrl(`/api/articles?published=true&limit=4`));
+          setErrorMessage('');
+
+          const relatedResponse = await fetch(buildApiUrl('/api/articles?published=true&limit=4'));
           const relatedData = await relatedResponse.json();
           setRelatedArticles((Array.isArray(relatedData) ? relatedData : []).filter((entry: Article) => entry.slug !== slug).slice(0, 3));
 
@@ -78,9 +85,20 @@ const ArticlePage = () => {
           setArticleAds(Array.isArray(articleAdsData) ? articleAdsData : []);
           setSidebarAds(Array.isArray(sidebarAdsData) ? sidebarAdsData : []);
           setBetweenParagraphAds(Array.isArray(betweenAdsData) ? betweenAdsData : []);
+        } else if (data?.premiumRequired) {
+          setPremiumMessage(data.error || 'Unlock this article with Innovation X Premium.');
+          setArticle(null);
+          setErrorMessage('');
+        } else {
+          setErrorMessage(data?.error || 'This article could not be loaded right now.');
+          setArticle(null);
+          setPremiumMessage('');
         }
       } catch (error) {
         console.error(error);
+        setArticle(null);
+        setPremiumMessage('');
+        setErrorMessage('Unable to load this article right now. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -107,7 +125,15 @@ const ArticlePage = () => {
   }
 
   if (!article) {
-    return <Navigate to="/" replace />;
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+        <div className="rounded-[2rem] border border-white/10 bg-slate-900/70 p-10 text-center shadow-[0_0_35px_rgba(14,165,233,0.1)]">
+          <h1 className="text-3xl font-semibold text-white">Article unavailable</h1>
+          <p className="mt-4 text-lg text-slate-300">{errorMessage || 'This story could not be loaded right now.'}</p>
+          <Link to="/" className="mt-8 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-5 py-3 font-semibold text-white">Return home</Link>
+        </div>
+      </div>
+    );
   }
 
   const paragraphs = useMemo(() => (article.content || '').split(/\n{2,}/).filter(Boolean), [article.content]);
