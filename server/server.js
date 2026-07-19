@@ -695,7 +695,7 @@ app.post('/api/articles', authenticate, requireAdmin, async (req, res) => {
     tags: Array.isArray(tags) ? tags : String(tags || '').split(',').map((tag) => tag.trim()).filter(Boolean),
     seoTitle: seoTitle || title,
     seoDescription: seoDescription || description,
-    published: Boolean(published),
+    published: published === undefined ? true : Boolean(published),
     premium: Boolean(premium),
   });
 

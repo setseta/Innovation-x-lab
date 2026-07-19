@@ -129,7 +129,7 @@ const AdminPage = () => {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [advertisingRequests, setAdvertisingRequests] = useState<AdvertisingRequest[]>([]);
-  const [form, setForm] = useState<AdminForm>({ title: '', slug: '', category: 'AI Lab', description: '', content: '', image: '', author: 'Innovation X Lab', tags: '', seoTitle: '', seoDescription: '', published: false });
+  const [form, setForm] = useState<AdminForm>({ title: '', slug: '', category: 'AI Lab', description: '', content: '', image: '', author: 'Innovation X Lab', tags: '', seoTitle: '', seoDescription: '', published: true });
   const [adForm, setAdForm] = useState({
     title: '',
     advertiserName: '',
@@ -261,7 +261,7 @@ const AdminPage = () => {
     setStatus(response.ok ? (editingId ? 'Article updated successfully.' : 'Article saved successfully.') : data.error || 'Unable to save article.');
     if (response.ok) {
       loadDashboard(token);
-      setForm({ title: '', slug: '', category: 'AI Lab', description: '', content: '', image: '', author: 'Innovation X Lab', tags: '', seoTitle: '', seoDescription: '', published: false });
+      setForm({ title: '', slug: '', category: 'AI Lab', description: '', content: '', image: '', author: 'Innovation X Lab', tags: '', seoTitle: '', seoDescription: '', published: true });
       setEditingId(null);
     }
   };
@@ -529,7 +529,7 @@ const AdminPage = () => {
                 <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} className="min-h-40 w-full rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Full content" />
                 <input value={form.author} onChange={(event) => setForm({ ...form, author: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Author" />
                 <input value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Tags (comma separated)" />
-                <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} /> Publish immediately</label>
+                <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={form.published} onChange={(event) => setForm({ ...form, published: event.target.checked })} /> Publish immediately on save</label>
               </div>
               {status ? <p className="mt-4 text-sm text-cyan-300">{status}</p> : null}
               <button type="submit" className="mt-6 rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white">{editingId ? 'Update article' : 'Save article'}</button>
