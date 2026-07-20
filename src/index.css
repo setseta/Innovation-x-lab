@@ -90,6 +90,29 @@ a, button, input, select, textarea {
   line-height: 1.78 !important;
 }
 
+.home-editorial-title {
+  font-size: clamp(1.9rem, 3.25vw, 2.7rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.home-section-title {
+  font-size: clamp(2rem, 3.6vw, 2.8rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.home-article-title {
+  font-size: clamp(1.45rem, 2.5vw, 2rem) !important;
+  line-height: 1.16 !important;
+  letter-spacing: -0.018em !important;
+}
+
+.home-article-body {
+  font-size: clamp(1rem, 1.8vw, 1.125rem) !important;
+  line-height: 1.85 !important;
+}
+
 article p, .article-body p, .article-content p {
   font-size: 1.125rem !important;
   line-height: 1.95 !important;
@@ -118,6 +141,23 @@ button, .btn, a.rounded-full {
 
   .section-heading {
     font-size: clamp(1.45rem, 4.8vw, 1.95rem) !important;
+  }
+
+  .home-editorial-title {
+    font-size: clamp(1.7rem, 6vw, 2.25rem) !important;
+  }
+
+  .home-section-title {
+    font-size: clamp(1.7rem, 5.4vw, 2.2rem) !important;
+  }
+
+  .home-article-title {
+    font-size: clamp(1.25rem, 4.6vw, 1.6rem) !important;
+  }
+
+  .home-article-body {
+    font-size: 1rem !important;
+    line-height: 1.8 !important;
   }
 
   .article-card-title {
