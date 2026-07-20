@@ -35,6 +35,40 @@ type Advertisement = {
   mediaType?: string;
 };
 
+const SITE_NAME = 'Innovation X Lab';
+const DEFAULT_ARTICLE_DESCRIPTION = 'Read this article on Innovation X Lab.';
+const DEFAULT_ARTICLE_IMAGE = '/favicon.svg';
+
+const getSiteUrl = () => {
+  const configuredSiteUrl = import.meta.env.VITE_SITE_URL?.trim();
+  if (configuredSiteUrl) {
+    return configuredSiteUrl.replace(/\/$/, '');
+  }
+
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin;
+  }
+
+  return 'https://innovationxlab.com';
+};
+
+const resolveAbsoluteUrl = (value: string | undefined, baseUrl = getSiteUrl()) => {
+  if (!value) {
+    return `${baseUrl}${baseUrl.endsWith('/') ? '' : '/'}${DEFAULT_ARTICLE_IMAGE.replace(/^\//, '')}`;
+  }
+
+  if (/^https?:\/\//i.test(value) || /^\/\//.test(value)) {
+    return value;
+  }
+
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch (error) {
+    console.error('Unable to resolve article image URL', error);
+    return `${baseUrl}${value.startsWith('/') ? value : `/${value}`}`;
+  }
+};
+
 const ArticlePage = () => {
   const { slug } = useParams<{ slug?: string }>();
   const location = useLocation();
@@ -149,6 +183,12 @@ const ArticlePage = () => {
   const currentIndex = allArticles.findIndex((entry) => entry.slug === article?.slug);
   const previousArticle = currentIndex > 0 ? allArticles[currentIndex - 1] : null;
   const nextArticle = currentIndex >= 0 && currentIndex < allArticles.length - 1 ? allArticles[currentIndex + 1] : null;
+  const siteUrl = getSiteUrl();
+  const articleSlug = article?.slug || slug;
+  const articleUrl = articleSlug ? `${siteUrl}/articles/${encodeURIComponent(articleSlug)}` : `${siteUrl}/`;
+  const metadataTitle = article ? `${article.title} | ${SITE_NAME}` : `${slug ? `Article: ${slug}` : 'Article'} | ${SITE_NAME}`;
+  const metadataDescription = article?.description?.trim() || DEFAULT_ARTICLE_DESCRIPTION;
+  const metadataImage = resolveAbsoluteUrl(article?.image || DEFAULT_ARTICLE_IMAGE, siteUrl);
   const contentWithAds = useMemo(() => paragraphs.flatMap((paragraph, index) => {
     const contentNode = <p key={`paragraph-${index}`} className="mb-6 text-[1.02rem] leading-[1.95] text-slate-300 sm:text-[1.12rem]">{paragraph}</p>;
     const adToShow = betweenParagraphAds[(Math.floor(index / 4)) % Math.max(1, betweenParagraphAds.length)];
@@ -192,8 +232,20 @@ const ArticlePage = () => {
       </div>
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <Helmet>
-          <title>{`${article.title} | Innovation X Lab`}</title>
-          <meta name="description" content={article.description} />
+          <title>{metadataTitle}</title>
+          <meta name="description" content={metadataDescription} />
+          <link rel="canonical" href={articleUrl} />
+          <meta property="og:type" content="article" />
+          <meta property="og:title" content={metadataTitle} />
+          <meta property="og:description" content={metadataDescription} />
+          <meta property="og:image" content={metadataImage} />
+          <meta property="og:url" content={articleUrl} />
+          <meta property="og:site_name" content={SITE_NAME} />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={metadataTitle} />
+          <meta name="twitter:description" content={metadataDescription} />
+          <meta name="twitter:image" content={metadataImage} />
+          <meta name="twitter:image:alt" content={article.title} />
         </Helmet>
 
         <article className="mx-auto max-w-[860px]">
