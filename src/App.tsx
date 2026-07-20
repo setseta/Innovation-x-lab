@@ -158,8 +158,8 @@ function App() {
       </Helmet>
 
       <header className={`sticky top-0 z-50 border-b backdrop-blur-xl transition-all duration-300 ${isScrolled ? (isDark ? 'border-white/10 bg-[#050816]/85 shadow-[0_8px_30px_rgba(2,6,23,0.2)]' : 'border-slate-200/80 bg-white/85 shadow-[0_8px_30px_rgba(15,23,42,0.08)]') : (isDark ? 'border-white/10 bg-[#050816]/70' : 'border-slate-200/70 bg-white/80')}`}>
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-8">
-          <Link to="/" onClick={() => { setMobileNavOpen(false); setDesktopMenuOpen(false); }} className={`group flex items-center whitespace-nowrap text-[0.65rem] font-semibold uppercase tracking-[0.28em] sm:text-[0.78rem] lg:text-[0.92rem] ${isDark ? 'text-white' : 'text-slate-900'}`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-1.5 px-3 py-3 sm:px-6 sm:gap-2 lg:px-8">
+          <Link to="/" onClick={() => { setMobileNavOpen(false); setDesktopMenuOpen(false); }} className={`group flex min-w-0 items-center whitespace-nowrap text-[0.58rem] font-semibold uppercase tracking-[0.22em] sm:text-[0.78rem] lg:text-[0.92rem] ${isDark ? 'text-white' : 'text-slate-900'}`}>
             <span className={`mr-2 transition duration-300 ${isDark ? 'text-white group-hover:text-slate-100' : 'text-slate-900 group-hover:text-slate-700'}`}>INNOVATION</span>
             <motion.span whileHover={{ scale: 1.08, rotate: -2, filter: 'brightness(1.2)' }} transition={{ type: 'spring', stiffness: 280, damping: 18 }} className="relative mx-1 inline-flex items-center bg-gradient-to-r from-cyan-400 via-sky-300 to-violet-500 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(34,211,238,0.35)]">
               <span className="absolute inset-0 blur-[0.6px] text-cyan-300/40">X</span>
@@ -168,13 +168,13 @@ function App() {
             <span className={`ml-2 transition duration-300 ${isDark ? 'text-white/75 group-hover:text-white/90' : 'text-slate-900 group-hover:text-slate-700'}`}>LAB</span>
           </Link>
 
-          <div className="flex flex-1 items-center justify-end gap-2 sm:gap-2.5">
-            <Link to="/search" className={`rounded-full border p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-200 bg-white/70 text-slate-700'}`} aria-label="Search">
-              <Search size={18} />
+          <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2.5">
+            <Link to="/search" className={`rounded-full border p-2 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 sm:p-2.5 ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-200 bg-white/70 text-slate-700'}`} aria-label="Search">
+              <Search size={17} />
             </Link>
 
-            <button type="button" className={`inline-flex rounded-full border p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-200 bg-white/70 text-slate-700'}`} onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))} aria-label="Toggle theme">
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            <button type="button" className={`inline-flex rounded-full border p-2 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 sm:p-2.5 ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-200 bg-white/70 text-slate-700'}`} onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))} aria-label="Toggle theme">
+              {isDark ? <Sun size={17} /> : <Moon size={17} />}
             </button>
 
             <Link to="/advertise" className={`hidden rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 sm:inline-flex ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-300/70 bg-white/70 text-slate-700'}`}>
@@ -210,22 +210,22 @@ function App() {
                 ) : null}
               </div>
             ) : (
-              <Link to="/membership" className={`relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-cyan-500 via-sky-500 to-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(14,165,233,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,211,238,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 ${isDark ? 'focus-visible:ring-offset-[#050816]' : 'focus-visible:ring-offset-white'}`} aria-label={isPremiumMember ? 'Open premium membership' : 'Open membership'}>
-                <Crown size={16} className="shrink-0" />
+              <Link to="/membership" className={`relative inline-flex items-center justify-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-r from-cyan-500 via-sky-500 to-violet-600 px-2.5 py-2 text-[0.78rem] font-semibold text-white shadow-[0_10px_24px_rgba(14,165,233,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,211,238,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 sm:gap-2 sm:px-3.5 sm:text-sm ${isDark ? 'focus-visible:ring-offset-[#050816]' : 'focus-visible:ring-offset-white'}`} aria-label={isPremiumMember ? 'Open premium membership' : 'Open membership'}>
+                <Crown size={15} className="shrink-0" />
                 <span className="hidden sm:inline">{isPremiumMember ? 'Premium Member' : 'Membership'}</span>
                 <span className="sm:hidden">{isPremiumMember ? 'Premium' : 'Join'}</span>
               </Link>
             )}
 
             <div className="relative">
-              <button type="button" onClick={toggleNavigationMenu} className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-300/70 bg-white/70 text-slate-700'}`} aria-label="Open navigation" aria-expanded={desktopMenuOpen} aria-controls="site-navigation-panel">
-                <Menu size={18} />
+              <button type="button" onClick={toggleNavigationMenu} className={`inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 py-2 text-[0.78rem] font-medium transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 sm:gap-2 sm:px-3.5 sm:text-sm ${isDark ? 'border-white/10 bg-white/5 text-slate-200' : 'border-slate-300/70 bg-white/70 text-slate-700'}`} aria-label="Open navigation" aria-expanded={desktopMenuOpen} aria-controls="site-navigation-panel">
+                <Menu size={17} />
                 <span className="hidden sm:inline">Menu</span>
               </button>
 
               <AnimatePresence>
                 {desktopMenuOpen && (
-                  <motion.div id="site-navigation-panel" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.2 }} className={`absolute right-0 top-full mt-3 w-[280px] rounded-[1.25rem] border p-4 shadow-2xl backdrop-blur-xl ${isDark ? 'border-white/10 bg-slate-950/95' : 'border-slate-200 bg-white/95'}`}>
+                  <motion.div id="site-navigation-panel" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.2 }} className={`absolute right-0 top-full mt-3 w-[280px] max-w-[calc(100vw-1.5rem)] rounded-[1.25rem] border p-4 shadow-2xl backdrop-blur-xl ${isDark ? 'border-white/10 bg-slate-950/95' : 'border-slate-200 bg-white/95'}`}>
                     <div className="space-y-2">
                       <Link to="/" onClick={() => setDesktopMenuOpen(false)} className={`block rounded-full px-3 py-2 text-sm font-medium transition ${isDark ? 'text-slate-200 hover:bg-white/5 hover:text-cyan-300' : 'text-slate-700 hover:bg-slate-100 hover:text-cyan-600'}`}>
                         Home

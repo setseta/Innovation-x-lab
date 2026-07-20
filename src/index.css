@@ -19,13 +19,23 @@ html[data-theme='dark'] {
   color-scheme: dark;
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  width: 100%;
   background: #ffffff;
   color: #111827;
   font-size: 16px;
   line-height: 1.75;
+}
+
+section, main, header, footer {
+  width: 100%;
+  min-width: 0;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -35,15 +45,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-size: clamp(2.4rem, 4.5vw, 3.7rem);
+  font-size: clamp(2.2rem, 4.25vw, 3.6rem);
 }
 
 h2 {
-  font-size: clamp(1.75rem, 3vw, 2.3rem);
+  font-size: clamp(1.6rem, 2.9vw, 2.25rem);
 }
 
 h3 {
-  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
 }
 
 p, li, figcaption, footer p, footer li, footer a, header a, header button, main button, main input, main select {
@@ -51,22 +61,33 @@ p, li, figcaption, footer p, footer li, footer a, header a, header button, main 
   line-height: 1.8;
 }
 
+img, video, svg, canvas, iframe {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+a, button, input, select, textarea {
+  max-width: 100%;
+}
+
 .hero-heading {
-  font-size: clamp(2.7rem, 5vw, 4.15rem) !important;
-  line-height: 1.05 !important;
+  font-size: clamp(2.05rem, 5.8vw, 4.15rem) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.03em !important;
 }
 
 .section-heading {
-  font-size: clamp(1.8rem, 3vw, 2.35rem) !important;
+  font-size: clamp(1.55rem, 3.4vw, 2.35rem) !important;
 }
 
 .article-card-title {
-  font-size: 1.2rem !important;
+  font-size: clamp(1rem, 2.2vw, 1.2rem) !important;
 }
 
 .subhead {
-  font-size: 1.05rem !important;
-  line-height: 1.85 !important;
+  font-size: clamp(0.95rem, 2.3vw, 1.08rem) !important;
+  line-height: 1.78 !important;
 }
 
 article p, .article-body p, .article-content p {
@@ -75,7 +96,42 @@ article p, .article-body p, .article-content p {
 }
 
 button, .btn, a.rounded-full {
-  font-size: 0.95rem;
+  font-size: clamp(0.84rem, 1.8vw, 0.95rem);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 15px;
+  }
+
+  p, li, figcaption, footer p, footer li, footer a, header a, header button, main button, main input, main select {
+    font-size: 0.95rem;
+    line-height: 1.75;
+  }
+
+  .hero-heading {
+    font-size: clamp(2rem, 7vw, 2.95rem) !important;
+    line-height: 1.03 !important;
+  }
+
+  .section-heading {
+    font-size: clamp(1.45rem, 4.8vw, 1.95rem) !important;
+  }
+
+  .article-card-title {
+    font-size: 1rem !important;
+  }
+
+  .subhead {
+    font-size: 0.95rem !important;
+    line-height: 1.75 !important;
+  }
+
+  button, .btn, a.rounded-full {
+    min-height: 44px;
+  }
 }
 
 html[data-theme='dark'] body {

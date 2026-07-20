@@ -294,35 +294,35 @@ const HomePage = () => {
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:34px_34px]" />
         <div className="absolute left-10 top-20 h-24 w-24 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="absolute bottom-16 right-12 h-32 w-32 rounded-full bg-violet-500/20 blur-3xl" />
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-24 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:py-32">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:gap-12 lg:px-8 lg:py-32">
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="relative z-10">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300 sm:mb-6">
               Premium technology intelligence
             </div>
-            <h1 className="hero-heading max-w-3xl font-semibold leading-tight text-white">
+            <h1 className="hero-heading mt-3 max-w-3xl font-semibold leading-tight text-white">
               Exploring The Technologies That Shape Tomorrow
             </h1>
-            <p className="subhead mt-6 max-w-2xl text-lg text-slate-300 sm:text-xl">
+            <p className="subhead mt-4 max-w-2xl text-slate-300 sm:mt-6">
               Discover AI breakthroughs, innovative gadgets, software, coding insights, and startups changing the world.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/review" className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white shadow-[0_0_35px_rgba(34,211,238,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_45px_rgba(34,211,238,0.28)]">
+            <div className="mt-6 flex flex-col gap-2.5 sm:mt-8 sm:flex-row sm:gap-3">
+              <Link to="/review" className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-5 py-3 font-semibold text-white shadow-[0_0_35px_rgba(34,211,238,0.2)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_45px_rgba(34,211,238,0.28)] sm:w-auto">
                 Explore Technology <ArrowRight size={18} />
               </Link>
-              <Link to="/contact" className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-6 py-3 font-semibold text-slate-100 transition duration-300 hover:bg-white/10">
+              <Link to="/contact" className="inline-flex w-full items-center justify-center rounded-full border border-white/15 bg-white/5 px-5 py-3 font-semibold text-slate-100 transition duration-300 hover:bg-white/10 sm:w-auto">
                 Join Newsletter
               </Link>
             </div>
-            <div className="mt-8 flex flex-wrap gap-3 text-sm text-slate-400">
+            <div className="mt-6 flex flex-wrap gap-2 text-sm text-slate-400 sm:mt-8 sm:gap-3">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Global partnerships</span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Emerging tech coverage</span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Founder-led insights</span>
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7 }} className="relative">
+          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7 }} className="relative w-full min-w-0">
             <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-cyan-500/25 via-violet-500/10 to-transparent blur-3xl" />
-            <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/70 p-6 shadow-[0_0_50px_rgba(14,165,233,0.12)]">
+            <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/70 p-4 shadow-[0_0_50px_rgba(14,165,233,0.12)] sm:p-6">
               <div className="rounded-[1.4rem] border border-cyan-400/20 bg-[#060b1b] p-6">
                 <div className="mb-6 flex items-center justify-between">
                   <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-sm text-cyan-300">Innovation X Lab Experiments</span>
@@ -376,7 +376,7 @@ const HomePage = () => {
         </section>
       ) : null}
 
-      <section className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8 lg:pb-24 lg:pt-8">
+      <section className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pb-20 lg:px-8 lg:pb-24 lg:pt-8">
         <div className="rounded-[2rem] border border-cyan-400/20 bg-slate-900/75 p-6 shadow-[0_0_45px_rgba(34,211,238,0.08)] sm:p-8 lg:p-10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -395,7 +395,7 @@ const HomePage = () => {
             <motion.article initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-8 overflow-hidden rounded-[1.7rem] border border-white/10 bg-slate-950/80">
               <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
                 <div className="overflow-hidden">
-                  <img loading="eager" decoding="async" src={featuredArticle.image || '/placeholder.jpg'} alt={featuredArticle.title} className="h-full min-h-[320px] w-full object-cover" />
+                  <img loading="eager" decoding="async" src={featuredArticle.image || '/placeholder.jpg'} alt={featuredArticle.title} className="h-full min-h-[240px] w-full object-cover sm:min-h-[320px]" />
                 </div>
                 <div className="p-6 sm:p-8 lg:p-10">
                   <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
@@ -420,7 +420,7 @@ const HomePage = () => {
           ) : null}
 
           {isArticlesLoading && articles.length === 0 ? (
-            <div className="mt-8 grid gap-6 xl:grid-cols-3">
+            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={`skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
                   <div className="h-48 w-full animate-pulse bg-slate-800" />
@@ -442,7 +442,7 @@ const HomePage = () => {
                 <div key={release.slug} className="space-y-6">
                   <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.6rem] border border-white/10 bg-slate-950/80">
                     <div className="overflow-hidden">
-                      <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-52 w-full object-cover transition duration-500 group-hover:scale-110" />
+                      <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110 sm:h-52" />
                     </div>
                     <div className="p-7 sm:p-8">
                       <div className="flex items-center justify-between gap-3">
@@ -473,7 +473,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-16">
         <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Featured Technology Stories</p>
@@ -498,7 +498,7 @@ const HomePage = () => {
                 <Link to={`/articles/${story.slug}`} state={{ article: story }} className="group block">
                   <motion.article whileHover={{ y: -6, scale: 1.01 }} className="group relative h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-slate-900/80 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] transition-all duration-300 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
                     <div className="overflow-hidden">
-                      <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={story.image || '/placeholder.jpg'} alt={story.title} className="h-52 w-full object-cover transition duration-500 group-hover:scale-110" />
+                      <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={story.image || '/placeholder.jpg'} alt={story.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110 sm:h-52" />
                     </div>
                     <div className="p-7 sm:p-8">
                       <div className="flex items-center justify-between gap-3">
@@ -561,7 +561,7 @@ const HomePage = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {experiments.map((experiment, index) => {
             const Icon = experiment.icon;
             return (
@@ -588,11 +588,11 @@ const HomePage = () => {
             <h2 className="mt-2 text-3xl font-semibold text-white">What the future is talking about</h2>
           </div>
         </div>
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {trendingArticles.map((article) => (
             <Link key={article.slug} to={`/articles/${article.slug}`} state={{ article }} className="group block">
               <div className="h-full rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-800/80 p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
-                <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={article.image || '/placeholder.jpg'} alt={article.title} className="mb-5 h-40 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105" />
+                <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={article.image || '/placeholder.jpg'} alt={article.title} className="mb-5 h-40 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105 sm:h-44" />
                 <div className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">{article.category}</div>
                 <h3 className="mt-3 text-xl font-semibold text-white">{article.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-400">{article.description}</p>
@@ -628,8 +628,8 @@ const HomePage = () => {
       </LazySection>
 
       <LazySection fallback={null}>
-        <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
-          <div className="rounded-[2rem] border border-white/10 bg-[#070d1d] p-8 lg:p-12">
+        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
+          <div className="rounded-[2rem] border border-white/10 bg-[#070d1d] p-6 sm:p-8 lg:p-12">
             <div className="max-w-2xl">
               <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Newsletter</p>
               <h2 className="mt-3 text-3xl font-semibold text-white">Stay Ahead Of The Future</h2>
