@@ -17,6 +17,8 @@ type Advertisement = {
   ctaText?: string;
   status?: string;
   mediaType?: string;
+  htmlContent?: string;
+  html?: string;
 };
 
 type AdvertisementCardProps = {
@@ -27,6 +29,9 @@ type AdvertisementCardProps = {
 };
 
 const getMediaType = (advertisement: Advertisement) => {
+  if (advertisement.mediaType === 'html' || advertisement.htmlContent || advertisement.html) {
+    return 'html';
+  }
   if (advertisement.videoUrl) return 'video';
   if (advertisement.gifUrl) return 'gif';
   return advertisement.image ? 'image' : 'none';
@@ -115,7 +120,7 @@ const AdvertisementCard = ({ advertisement, variant = 'homepage', className = ''
       transition={{ duration: 0.35 }}
       className={`group block overflow-hidden rounded-[1.5rem] border border-cyan-400/20 bg-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.08)] transition-all duration-300 hover:border-cyan-400/40 dark:border-white/10 dark:bg-slate-900/80 ${className}`}
     >
-      <div className={`relative overflow-hidden ${isHero ? 'min-h-[220px]' : isStory ? 'min-h-[220px]' : 'min-h-[180px]'}`}>
+      <div className={`relative overflow-hidden ${mediaType === 'html' ? 'min-h-[120px]' : isHero ? 'min-h-[220px]' : isStory ? 'min-h-[220px]' : 'min-h-[180px]'}`}>
         {mediaType === 'video' && advertisement.videoUrl ? (
           <video
             ref={videoRef}
@@ -134,6 +139,11 @@ const AdvertisementCard = ({ advertisement, variant = 'homepage', className = ''
         {mediaType === 'image' && advertisement.image ? (
           <img src={advertisement.image} alt={advertisement.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
         ) : null}
+        {mediaType === 'html' ? (
+          <div className="flex h-full min-h-[140px] items-center justify-center bg-gradient-to-br from-cyan-500/10 via-violet-500/10 to-slate-300/20 p-4 text-sm text-slate-700 dark:text-slate-300">
+            <div className="w-full" dangerouslySetInnerHTML={{ __html: advertisement.htmlContent || advertisement.html || '' }} />
+          </div>
+        ) : null}
         {mediaType === 'none' ? (
           <div className="flex h-full min-h-[180px] items-center justify-center bg-gradient-to-br from-cyan-500/10 via-violet-500/10 to-slate-300/20 dark:from-cyan-500/10 dark:via-violet-500/10 dark:to-slate-900/80">
             <div className="rounded-full border border-cyan-400/30 bg-white/70 p-4 text-cyan-500 dark:bg-slate-950/70 dark:text-cyan-300">
@@ -142,7 +152,7 @@ const AdvertisementCard = ({ advertisement, variant = 'homepage', className = ''
           </div>
         ) : null}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/20 to-transparent" />
+        {mediaType !== 'html' ? <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/20 to-transparent" /> : null}
         <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/70 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-cyan-200 backdrop-blur">
           <span className="inline-flex h-2 w-2 rounded-full bg-cyan-300" />
           Sponsored

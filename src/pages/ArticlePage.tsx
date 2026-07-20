@@ -27,7 +27,12 @@ type Advertisement = {
   destinationUrl: string;
   placement: string;
   image?: string;
+  videoUrl?: string;
+  gifUrl?: string;
   description?: string;
+  htmlContent?: string;
+  html?: string;
+  mediaType?: string;
 };
 
 const ArticlePage = () => {
@@ -37,18 +42,34 @@ const ArticlePage = () => {
   const [article, setArticle] = useState<Article | null>(fallbackArticle);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [allArticles, setAllArticles] = useState<Article[]>([]);
-  const [articleAds, setArticleAds] = useState<Advertisement[]>([]);
-  const [sidebarAds, setSidebarAds] = useState<Advertisement[]>([]);
   const [betweenParagraphAds, setBetweenParagraphAds] = useState<Advertisement[]>([]);
   const [loading, setLoading] = useState(true);
   const [premiumMessage, setPremiumMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [token] = useState<string | null>(() => {
     if (typeof window === 'undefined') {
       return null;
     }
     return localStorage.getItem('authToken');
   });
+
+  useEffect(() => {
+    const updateProgress = () => {
+      const scrollTop = window.scrollY;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const nextProgress = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 0;
+      setScrollProgress(Math.min(100, Math.max(0, nextProgress)));
+    };
+
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+    return () => {
+      window.removeEventListener('scroll', updateProgress);
+      window.removeEventListener('resize', updateProgress);
+    };
+  }, []);
 
   useEffect(() => {
     const loadArticle = async () => {
@@ -94,18 +115,12 @@ const ArticlePage = () => {
             const tagScore = (entry.tags || []).reduce<number>((sum, tag) => sum + (currentTags.includes(tag) ? 1 : 0), 0);
             return { entry, score: categoryScore + tagScore };
           }).sort((left, right) => right.score - left.score || (new Date(right.entry.createdAt || 0).getTime() - new Date(left.entry.createdAt || 0).getTime()));
-          setRelatedArticles(scored.slice(0, 4).map(({ entry }) => entry));
+          setRelatedArticles(scored.slice(0, 6).map(({ entry }) => entry));
 
-          const [articleAdsResponse, sidebarAdsResponse, betweenAdsResponse] = await Promise.all([
-            fetch(buildApiUrl('/api/advertisements?placement=article-page')),
-            fetch(buildApiUrl('/api/advertisements?placement=sidebar')),
+          const [betweenAdsResponse] = await Promise.all([
             fetch(buildApiUrl('/api/advertisements?placement=between-articles')),
           ]);
-          const articleAdsData = await articleAdsResponse.json();
-          const sidebarAdsData = await sidebarAdsResponse.json();
           const betweenAdsData = await betweenAdsResponse.json();
-          setArticleAds(Array.isArray(articleAdsData) ? articleAdsData : []);
-          setSidebarAds(Array.isArray(sidebarAdsData) ? sidebarAdsData : []);
           setBetweenParagraphAds(Array.isArray(betweenAdsData) ? betweenAdsData : []);
         } else if (data?.premiumRequired) {
           setPremiumMessage(data.error || 'Unlock this article with Innovation X Premium.');
@@ -130,22 +145,24 @@ const ArticlePage = () => {
   }, [fallbackArticle, slug, token]);
 
   const paragraphs = useMemo(() => (article?.content || '').split(/\n{2,}/).filter(Boolean), [article?.content]);
+  const readingTime = Math.max(3, Math.ceil((article?.content || '').split(/\s+/).filter(Boolean).length / 180));
   const currentIndex = allArticles.findIndex((entry) => entry.slug === article?.slug);
   const previousArticle = currentIndex > 0 ? allArticles[currentIndex - 1] : null;
   const nextArticle = currentIndex >= 0 && currentIndex < allArticles.length - 1 ? allArticles[currentIndex + 1] : null;
   const contentWithAds = useMemo(() => paragraphs.flatMap((paragraph, index) => {
-    const contentNode = <p key={`paragraph-${index}`} className="mb-5 text-lg leading-8 text-slate-300">{paragraph}</p>;
-    const insertion = index > 0 && index % 3 === 0 && betweenParagraphAds[0] ? [contentNode, <div key={`ad-${index}`} className="my-6"><AdvertisementCard advertisement={betweenParagraphAds[0]} variant="inline" className="border-cyan-400/20" /></div>] : [contentNode];
+    const contentNode = <p key={`paragraph-${index}`} className="mb-6 text-[1.02rem] leading-[1.95] text-slate-300 sm:text-[1.12rem]">{paragraph}</p>;
+    const adToShow = betweenParagraphAds[(Math.floor(index / 4)) % Math.max(1, betweenParagraphAds.length)];
+    const insertion = index > 0 && index % 4 === 0 && adToShow ? [contentNode, <div key={`ad-${index}`} className="my-8"><AdvertisementCard advertisement={adToShow} variant="inline" className="border-white/10 bg-slate-900/80" /></div>] : [contentNode];
     return insertion;
   }), [paragraphs, betweenParagraphAds]);
 
   if (loading) {
-    return <div className="mx-auto max-w-7xl px-4 py-20 text-slate-400">Loading article…</div>;
+    return <div className="mx-auto max-w-4xl px-4 py-20 text-slate-400 sm:px-6 lg:px-8 lg:py-24">Loading article…</div>;
   }
 
   if (!article && premiumMessage) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+      <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
         <div className="rounded-[2rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-10 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-300"><Crown size={24} /></div>
           <h1 className="mt-6 text-3xl font-semibold text-white">Unlock this article with Innovation X Premium.</h1>
@@ -169,31 +186,48 @@ const ArticlePage = () => {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
-      <Helmet>
-        <title>{`${article.title} | Innovation X Lab`}</title>
-        <meta name="description" content={article.description} />
-      </Helmet>
-      <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <article className="rounded-[2rem] border border-white/10 bg-slate-900/70 p-8 shadow-[0_0_35px_rgba(14,165,233,0.1)] sm:p-10">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="fixed inset-x-0 top-0 z-50 h-[2px] bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-violet-600 transition-[width] duration-200" style={{ width: `${scrollProgress}%` }} />
+      </div>
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <Helmet>
+          <title>{`${article.title} | Innovation X Lab`}</title>
+          <meta name="description" content={article.description} />
+        </Helmet>
+
+        <article className="mx-auto max-w-[860px]">
           <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300">
             {article.category}
           </div>
-          <h1 className="mt-5 text-4xl font-semibold text-white sm:text-5xl">{article.title}</h1>
-          <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-slate-400">
+
+          <h1 className="mt-6 text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
+            {article.title}
+          </h1>
+
+          <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300 sm:text-xl">
+            {article.description}
+          </p>
+
+          <div className="mt-7 flex flex-wrap items-center gap-3 text-sm text-slate-400">
             <span>By {article.author || 'Innovation X Lab'}</span>
             <span>•</span>
             <span>{article.createdAt ? new Date(article.createdAt).toLocaleDateString() : 'Recently published'}</span>
             <span>•</span>
-            <span>{Math.max(3, Math.ceil((article.content || '').split(/\s+/).length / 180))} min read</span>
+            <span>{readingTime} min read</span>
           </div>
-          {article.image ? <img src={article.image} alt={article.title} className="mt-8 h-72 w-full rounded-[1.5rem] object-cover" /> : null}
-          <p className="mt-8 text-[1.125rem] leading-8 text-slate-300">{article.description}</p>
-          <div className="mt-6">{contentWithAds}</div>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <SocialIcons className="gap-3" />
+
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <SocialIcons className="gap-3" includeCopyLink />
           </div>
-          <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+
+          {article.image ? (
+            <img src={article.image} alt={article.title} className="mt-10 w-full rounded-[1.25rem] border border-white/10 object-cover shadow-[0_24px_80px_rgba(2,8,23,0.35)] sm:h-[420px]" />
+          ) : null}
+
+          <div className="mt-10 space-y-6">{contentWithAds}</div>
+
+          <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
             {previousArticle ? (
               <Link to={`/articles/${previousArticle.slug}`} state={{ article: previousArticle }} className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 font-semibold text-slate-200 transition hover:border-cyan-400/30 hover:text-cyan-300">
                 <ArrowRight size={14} className="rotate-180" /> Previous Article
@@ -205,56 +239,39 @@ const ArticlePage = () => {
               </Link>
             ) : <span className="text-sm text-slate-500">This is the latest story in the feed.</span>}
           </div>
-        </article>
 
-        <aside className="space-y-6">
-          <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6">
-            <h3 className="text-xl font-semibold text-white">Related Articles</h3>
-            <div className="mt-4 space-y-3">
-              {relatedArticles.map((related) => (
-                <Link key={related.slug} to={`/articles/${related.slug}`} state={{ article: related }} className="block rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-cyan-400/30 hover:bg-cyan-500/10">
-                  <div className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{related.category}</div>
-                  <h4 className="mt-2 text-base font-semibold text-white">{related.title}</h4>
-                  <p className="mt-2 text-sm text-slate-400">{related.description}</p>
-                  <div className="mt-3 inline-flex items-center gap-2 text-sm text-cyan-300">Read article <ArrowRight size={14} /></div>
-                </Link>
-              ))}
-            </div>
-          </div>
-          {articleAds.length > 0 ? (
-            <div className="rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-6">
-              <h3 className="text-xl font-semibold text-white">Sponsored</h3>
-              <div className="mt-4 space-y-3">
-                {articleAds.map((ad) => (
-                  <a key={ad._id} href={ad.destinationUrl} target="_blank" rel="noreferrer" className="block rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                    {ad.image ? <img src={ad.image} alt={ad.title} className="h-24 w-full rounded-xl object-cover" /> : null}
-                    <div className="mt-3">
-                      <div className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">Partner</div>
-                      <h4 className="mt-2 text-base font-semibold text-white">{ad.title}</h4>
-                      {ad.description ? <p className="mt-2 text-sm text-slate-400">{ad.description}</p> : null}
-                    </div>
-                  </a>
+          {relatedArticles.length > 0 ? (
+            <section className="mt-16 border-t border-white/10 pt-10">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300">More from Innovation X Lab</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Related reading</h2>
+                </div>
+                <Link to="/" className="text-sm font-semibold text-cyan-300 transition hover:text-cyan-200">Browse all stories</Link>
+              </div>
+              <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {relatedArticles.map((related) => (
+                  <Link key={related.slug} to={`/articles/${related.slug}`} state={{ article: related }} className="group rounded-[1.35rem] border border-white/10 bg-slate-900/70 p-5 transition hover:border-cyan-400/30 hover:bg-slate-900">
+                    <div className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{related.category}</div>
+                    <h3 className="mt-3 text-lg font-semibold text-white transition group-hover:text-cyan-300">{related.title}</h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">{related.description}</p>
+                    <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-cyan-300">Read story <ArrowRight size={14} /></div>
+                  </Link>
                 ))}
               </div>
-            </div>
+            </section>
           ) : null}
-          {sidebarAds.length > 0 ? (
-            <div className="hidden lg:block">
-              <div className="sticky top-24 rounded-[1.5rem] border border-white/10 bg-slate-900/70 p-6 shadow-[0_0_30px_rgba(34,211,238,0.08)]">
-                <h3 className="text-xl font-semibold text-white">Featured Partner</h3>
-                <div className="mt-4 space-y-3">
-                  {sidebarAds.map((ad) => (
-                    <AdvertisementCard key={ad._id} advertisement={ad} variant="sidebar" className="border-white/10 bg-slate-950/70" />
-                  ))}
-                </div>
-              </div>
+
+          <section className="mt-16 rounded-[1.75rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 via-slate-900/70 to-violet-500/10 p-8 sm:p-10">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300">Newsletter</p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">Subscribe for a sharper view of global technology.</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">Get the most important stories, product launches, and analysis from Innovation X Lab delivered to your inbox.</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/membership" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3 font-semibold text-slate-950">Join the community</Link>
+              <Link to="/contact" className="inline-flex items-center justify-center rounded-full border border-white/10 bg-slate-950/70 px-5 py-3 font-semibold text-white">Contact us</Link>
             </div>
-          ) : null}
-          <div className="rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-6">
-            <h3 className="text-xl font-semibold text-white">Global Perspective</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-400">Join the conversation around the future of intelligent technology and the companies shaping it worldwide.</p>
-          </div>
-        </aside>
+          </section>
+        </article>
       </div>
     </div>
   );
