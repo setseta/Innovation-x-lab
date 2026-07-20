@@ -69,6 +69,11 @@ const replaceMetaTag = (html, attrName, attrValue, content) => {
 
 const replaceTitle = (html, title) => html.replace(/<title>.*<\/title>/i, `<title>${escapeHTML(title)}</title>`);
 
+const injectJsonLd = (html, jsonLd) => {
+  const scriptTag = `<script type="application/ld+json">${jsonLd}</script>`;
+  return html.replace(/<\/head>/i, `  ${scriptTag}\n</head>`);
+};
+
 const buildAbsoluteUrl = (siteUrl, value) => {
   if (!value) {
     return `${siteUrl}/favicon.svg`;
@@ -1586,17 +1591,55 @@ app.get('/articles/:slug', async (req, res) => {
   const siteUrl = getFrontendBaseUrl(req);
   const articleUrl = `${siteUrl}/articles/${encodeURIComponent(article.slug)}`;
   const seoTitle = article.seoTitle?.trim() || article.title;
-  const seoDescription = article.seoDescription?.trim() || article.description;
+  const seoDescription = article.seoDescription?.trim() || article.description || 'Read this article on Innovation X Lab.';
   const imageUrl = buildAbsoluteUrl(siteUrl, article.image);
+  const publishedAt = article.createdAt ? new Date(article.createdAt).toISOString() : null;
+  const modifiedAt = article.updatedAt ? new Date(article.updatedAt).toISOString() : publishedAt;
+
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: seoTitle,
+    description: seoDescription,
+    image: imageUrl,
+    url: articleUrl,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': articleUrl,
+    },
+    author: {
+      '@type': 'Organization',
+      name: 'Innovation X Lab',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Innovation X Lab',
+      logo: {
+        '@type': 'ImageObject',
+        url: `${siteUrl}/favicon.svg`,
+      },
+    },
+    datePublished: publishedAt,
+    dateModified: modifiedAt,
+    articleSection: article.category || 'Technology',
+  };
+
+  const safeJsonLd = JSON.stringify(articleSchema)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
 
   let html = indexHtmlTemplate || '';
   html = replaceTitle(html, seoTitle);
   html = replaceMetaTag(html, 'name', 'description', seoDescription);
+  html = replaceMetaTag(html, 'property', 'og:type', 'article');
   html = replaceMetaTag(html, 'property', 'og:title', seoTitle);
   html = replaceMetaTag(html, 'property', 'og:description', seoDescription);
   html = replaceMetaTag(html, 'property', 'og:image', imageUrl);
   html = replaceMetaTag(html, 'property', 'og:url', articleUrl);
   html = replaceMetaTag(html, 'property', 'og:site_name', 'Innovation X Lab');
+  html = replaceMetaTag(html, 'property', 'article:published_time', publishedAt || '');
+  html = replaceMetaTag(html, 'property', 'article:modified_time', modifiedAt || '');
   html = replaceMetaTag(html, 'name', 'twitter:card', 'summary_large_image');
   html = replaceMetaTag(html, 'name', 'twitter:title', seoTitle);
   html = replaceMetaTag(html, 'name', 'twitter:description', seoDescription);
@@ -1607,6 +1650,8 @@ app.get('/articles/:slug', async (req, res) => {
   } else {
     html = html.replace(/<link[^>]*rel=["']canonical["'][^>]*>/i, `<link rel="canonical" href="${escapeHTML(articleUrl)}" />`);
   }
+
+  html = injectJsonLd(html, safeJsonLd);
 
   return res.status(200).type('html').send(html);
 });

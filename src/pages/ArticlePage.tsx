@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Crown } from 'lucide-react';
 import AdvertisementCard from '../components/AdvertisementCard';
-import SocialIcons from '../components/SocialIcons';
+import ArticleShare from '../components/ArticleShare';
 import { buildApiUrl } from '../config/api';
 
 type Article = {
@@ -273,14 +273,7 @@ const ArticlePage = () => {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <SocialIcons
-              className="gap-3"
-              includeCopyLink
-              includeShareButton
-              shareTitle={article.title}
-              shareText={shareDescription}
-              shareUrl={articleUrl}
-            />
+            <ArticleShare title={article.title} description={shareDescription} url={articleUrl} className="gap-3" />
           </div>
 
           {article.image ? (
