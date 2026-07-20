@@ -1,3 +1,6 @@
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -39,6 +42,59 @@ const EMAIL_PORT = Number(process.env.EMAIL_PORT || 587);
 const EMAIL_USER = process.env.EMAIL_USER || '';
 const EMAIL_PASS = process.env.EMAIL_PASS || '';
 const FRONTEND_BASE_URL = (process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.PUBLIC_URL || 'http://localhost:5173').replace(/\/$/, '');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DIST_DIR = path.resolve(__dirname, '..', 'dist');
+const INDEX_HTML_PATH = path.join(DIST_DIR, 'index.html');
+let indexHtmlTemplate = '';
+
+const escapeHTML = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const replaceMetaTag = (html, attrName, attrValue, content) => {
+  const escapedValue = escapeRegex(attrValue);
+  const pattern = new RegExp(`<meta[^>]*${attrName}=["']${escapedValue}["'][^>]*>`, 'i');
+  const replacement = `<meta ${attrName}="${attrValue}" content="${escapeHTML(content)}" />`;
+  if (pattern.test(html)) {
+    return html.replace(pattern, replacement);
+  }
+  return html.replace(/<\/head>/i, `  ${replacement}\n</head>`);
+};
+
+const replaceTitle = (html, title) => html.replace(/<title>.*<\/title>/i, `<title>${escapeHTML(title)}</title>`);
+
+const buildAbsoluteUrl = (siteUrl, value) => {
+  if (!value) {
+    return `${siteUrl}/favicon.svg`;
+  }
+  if (/^https?:\/\//i.test(value) || /^\/\//.test(value)) {
+    return value;
+  }
+  return `${siteUrl}${value.startsWith('/') ? '' : '/'}${value}`;
+};
+
+const loadIndexHtml = async () => {
+  try {
+    indexHtmlTemplate = await fs.readFile(INDEX_HTML_PATH, 'utf8');
+  } catch (error) {
+    console.warn('Unable to load dist/index.html for article metadata injection:', error?.message || error);
+    indexHtmlTemplate = '';
+  }
+};
+
+const getFrontendBaseUrl = (req) => {
+  const originValue = req.headers.origin || req.headers.referer || '';
+  if (originValue) {
+    return String(originValue).replace(/\/$/, '');
+  }
+  return FRONTEND_BASE_URL;
+};
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'e4cjpp5k',
@@ -330,14 +386,6 @@ const sendAdvertisingRequestEmails = async (requestRecord) => {
     subject: 'New Advertising Request Received',
     text: adminMessage,
   });
-};
-
-const getFrontendBaseUrl = (req) => {
-  const originValue = req.headers.origin || req.headers.referer || '';
-  if (originValue) {
-    return String(originValue).replace(/\/$/, '');
-  }
-  return FRONTEND_BASE_URL;
 };
 
 const getSubscriptionExpiryDate = (billingCycle, startDate = new Date()) => {
@@ -1520,6 +1568,59 @@ app.get('/api/admin/newsletters', authenticate, requireAdmin, async (_req, res) 
 app.get('/api/admin/articles', authenticate, requireAdmin, async (_req, res) => {
   const articles = await Article.find().sort({ createdAt: -1 }).lean();
   res.json(articles);
+});
+
+app.use(express.static(DIST_DIR, { extensions: ['html'], index: false }));
+void loadIndexHtml();
+
+app.get('/articles/:slug', async (req, res) => {
+  if (!indexHtmlTemplate) {
+    await loadIndexHtml();
+  }
+
+  const article = await Article.findOne({ slug: req.params.slug, published: true }).lean();
+  if (!article) {
+    return res.status(404).send('Article not found');
+  }
+
+  const siteUrl = getFrontendBaseUrl(req);
+  const articleUrl = `${siteUrl}/articles/${encodeURIComponent(article.slug)}`;
+  const seoTitle = article.seoTitle?.trim() || article.title;
+  const seoDescription = article.seoDescription?.trim() || article.description;
+  const imageUrl = buildAbsoluteUrl(siteUrl, article.image);
+
+  let html = indexHtmlTemplate || '';
+  html = replaceTitle(html, seoTitle);
+  html = replaceMetaTag(html, 'name', 'description', seoDescription);
+  html = replaceMetaTag(html, 'property', 'og:title', seoTitle);
+  html = replaceMetaTag(html, 'property', 'og:description', seoDescription);
+  html = replaceMetaTag(html, 'property', 'og:image', imageUrl);
+  html = replaceMetaTag(html, 'property', 'og:url', articleUrl);
+  html = replaceMetaTag(html, 'property', 'og:site_name', 'Innovation X Lab');
+  html = replaceMetaTag(html, 'name', 'twitter:card', 'summary_large_image');
+  html = replaceMetaTag(html, 'name', 'twitter:title', seoTitle);
+  html = replaceMetaTag(html, 'name', 'twitter:description', seoDescription);
+  html = replaceMetaTag(html, 'name', 'twitter:image', imageUrl);
+
+  if (!/rel="canonical"/i.test(html)) {
+    html = html.replace(/<\/head>/i, `  <link rel="canonical" href="${escapeHTML(articleUrl)}" />\n</head>`);
+  } else {
+    html = html.replace(/<link[^>]*rel=["']canonical["'][^>]*>/i, `<link rel="canonical" href="${escapeHTML(articleUrl)}" />`);
+  }
+
+  return res.status(200).type('html').send(html);
+});
+
+app.get('*', async (req, res) => {
+  if (!indexHtmlTemplate) {
+    await loadIndexHtml();
+  }
+
+  if (!indexHtmlTemplate) {
+    return res.status(500).send('Frontend not available');
+  }
+
+  return res.status(200).type('html').send(indexHtmlTemplate);
 });
 
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 }).then(async () => {

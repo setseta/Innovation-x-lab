@@ -18,6 +18,8 @@ type Article = {
   premium?: boolean;
   createdAt?: string;
   tags?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
 };
 
 type Advertisement = {
@@ -186,8 +188,8 @@ const ArticlePage = () => {
   const siteUrl = getSiteUrl();
   const articleSlug = article?.slug || slug;
   const articleUrl = articleSlug ? `${siteUrl}/articles/${encodeURIComponent(articleSlug)}` : `${siteUrl}/`;
-  const metadataTitle = article ? `${article.title} | ${SITE_NAME}` : `${slug ? `Article: ${slug}` : 'Article'} | ${SITE_NAME}`;
-  const metadataDescription = article?.description?.trim() || DEFAULT_ARTICLE_DESCRIPTION;
+  const metadataTitle = article ? `${article.seoTitle?.trim() || article.title} | ${SITE_NAME}` : `${slug ? `Article: ${slug}` : 'Article'} | ${SITE_NAME}`;
+  const metadataDescription = article?.seoDescription?.trim() || article?.description?.trim() || DEFAULT_ARTICLE_DESCRIPTION;
   const shareDescription = metadataDescription.replace(/\s+/g, ' ').trim().slice(0, 160);
   const metadataImage = resolveAbsoluteUrl(article?.image || DEFAULT_ARTICLE_IMAGE, siteUrl);
   const contentWithAds = useMemo(() => paragraphs.flatMap((paragraph, index) => {
