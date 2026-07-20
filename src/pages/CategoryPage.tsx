@@ -44,7 +44,7 @@ const CategoryPage = ({ category }: { category: string }) => {
       </Helmet>
       <div className="max-w-3xl">
         <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">{category}</p>
-        <h1 className="mt-3 text-4xl font-semibold text-white sm:text-5xl">Stories curated for {category}</h1>
+        <h1 className="hero-heading mt-3 font-semibold text-white">Stories curated for {category}</h1>
       </div>
       <div className="mt-10 grid gap-6 lg:grid-cols-3">
         {loading ? (

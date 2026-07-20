@@ -188,7 +188,7 @@ const ArticlePage = () => {
             <span>{Math.max(3, Math.ceil((article.content || '').split(/\s+/).length / 180))} min read</span>
           </div>
           {article.image ? <img src={article.image} alt={article.title} className="mt-8 h-72 w-full rounded-[1.5rem] object-cover" /> : null}
-          <p className="mt-8 text-lg leading-8 text-slate-300">{article.description}</p>
+          <p className="mt-8 text-[1.125rem] leading-8 text-slate-300">{article.description}</p>
           <div className="mt-6">{contentWithAds}</div>
           <div className="mt-8 flex flex-wrap gap-3">
             <SocialIcons className="gap-3" />

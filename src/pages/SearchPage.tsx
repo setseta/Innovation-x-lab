@@ -64,8 +64,8 @@ const SearchPage = () => {
 
       <div className="max-w-3xl">
         <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Search</p>
-        <h1 className="mt-3 text-4xl font-semibold text-white sm:text-5xl">Find articles, reviews, and categories</h1>
-        <p className="mt-6 text-lg text-slate-300">Search the latest published articles and reviews from the Innovation X Lab content platform.</p>
+        <h1 className="hero-heading mt-3 font-semibold text-white">Find articles, reviews, and categories</h1>
+        <p className="mt-6 text-lg leading-8 text-slate-300">Search the latest published articles and reviews from the Innovation X Lab content platform.</p>
       </div>
 
       <form onSubmit={handleSearch} className="mt-10 flex flex-col gap-3 sm:flex-row">

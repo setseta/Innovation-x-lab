@@ -24,6 +24,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LazySection from './components/LazySection';
 import FreeMembershipDetailsPage from './pages/FreeMembershipDetailsPage';
 import FreeMembershipSuccessPage from './pages/FreeMembershipSuccessPage';
+import LatestArticlesPage from './pages/LatestArticlesPage';
+import FeaturedStoriesPage from './pages/FeaturedStoriesPage';
 
 function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -65,7 +67,7 @@ function App() {
     {
       label: 'Articles',
       items: [
-        { label: 'Latest Articles', href: '/search' },
+        { label: 'Latest Articles', href: '/latest-articles' },
         { label: 'AI', href: '/ai-lab' },
         { label: 'Gadgets', href: '/gadget-lab' },
         { label: 'Software', href: '/software-lab' },
@@ -77,7 +79,8 @@ function App() {
     {
       label: 'News',
       items: [
-        { label: 'Latest News', href: '/search' },
+        { label: 'Latest News', href: '/latest-articles' },
+        { label: 'Featured Stories', href: '/featured-stories' },
         { label: 'AI News', href: '/ai-lab' },
         { label: 'Gadget News', href: '/gadget-lab' },
         { label: 'Software News', href: '/software-lab' },
@@ -319,6 +322,8 @@ function App() {
           <Route path="/admin/login" element={<AdminPage />} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/admin/reviews" element={<ProtectedRoute><ReviewEditorPage /></ProtectedRoute>} />
+          <Route path="/latest-articles" element={<LatestArticlesPage />} />
+          <Route path="/featured-stories" element={<FeaturedStoriesPage />} />
           <Route path="/search" element={<SearchPage />} />
         </Routes>
       </main>

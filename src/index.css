@@ -24,6 +24,58 @@ body {
   min-height: 100vh;
   background: #ffffff;
   color: #111827;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 4.5vw, 3.7rem);
+}
+
+h2 {
+  font-size: clamp(1.75rem, 3vw, 2.3rem);
+}
+
+h3 {
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+}
+
+p, li, figcaption, footer p, footer li, footer a, header a, header button, main button, main input, main select {
+  font-size: 0.96rem;
+  line-height: 1.8;
+}
+
+.hero-heading {
+  font-size: clamp(2.7rem, 5vw, 4.15rem) !important;
+  line-height: 1.05 !important;
+}
+
+.section-heading {
+  font-size: clamp(1.8rem, 3vw, 2.35rem) !important;
+}
+
+.article-card-title {
+  font-size: 1.2rem !important;
+}
+
+.subhead {
+  font-size: 1.05rem !important;
+  line-height: 1.85 !important;
+}
+
+article p, .article-body p, .article-content p {
+  font-size: 1.125rem !important;
+  line-height: 1.95 !important;
+}
+
+button, .btn, a.rounded-full {
+  font-size: 0.95rem;
 }
 
 html[data-theme='dark'] body {

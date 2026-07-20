@@ -32,6 +32,12 @@ const HomePage = () => {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
   const [visibleOlderCount, setVisibleOlderCount] = useState(4);
+  const [featuredStoriesCount, setFeaturedStoriesCount] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 4;
+    }
+    return window.innerWidth >= 1280 ? 6 : 4;
+  });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const latestArticlesRequestRef = useRef<AbortController | null>(null);
 
@@ -122,6 +128,17 @@ const HomePage = () => {
   };
 
   useEffect(() => {
+    const handleResize = () => {
+      setFeaturedStoriesCount(window.innerWidth >= 1280 ? 6 : 4);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
     void Promise.all([
       fetchArticles(),
       (async () => {
@@ -189,9 +206,9 @@ const HomePage = () => {
   }, [searchTerm, articles]);
 
   const featuredArticle = filteredStories[0] ?? null;
-  const featuredStories = filteredStories.slice(0, 6);
-  const latestArticles = filteredStories.slice(1, 6);
-  const olderArticles = filteredStories.slice(6);
+  const featuredStories = filteredStories.slice(0, featuredStoriesCount);
+  const latestArticles = filteredStories.slice(1, 4);
+  const olderArticles = filteredStories.slice(4);
 
   useEffect(() => {
     if (!featuredArticle?.slug) {
@@ -282,10 +299,10 @@ const HomePage = () => {
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
               Premium technology intelligence
             </div>
-            <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-7xl">
+            <h1 className="hero-heading max-w-3xl font-semibold leading-tight text-white">
               Exploring The Technologies That Shape Tomorrow
             </h1>
-            <p className="mt-6 max-w-2xl text-lg text-slate-300 sm:text-xl">
+            <p className="subhead mt-6 max-w-2xl text-lg text-slate-300 sm:text-xl">
               Discover AI breakthroughs, innovative gadgets, software, coding insights, and startups changing the world.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -364,13 +381,13 @@ const HomePage = () => {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300">
-                Featured Latest Article
+                Latest Releases
               </div>
-              <h2 className="mt-4 text-3xl font-semibold text-white">The newest story leads the homepage</h2>
-              <p className="mt-3 max-w-2xl text-base text-slate-400">The latest publication is highlighted as the featured article, while the next set of stories rolls down in a polished, publication-style feed.</p>
+              <h2 className="section-heading mt-4 font-semibold text-white">The newest stories lead the newsroom</h2>
+              <p className="mt-3 max-w-2xl text-base text-slate-400">A compact, publication-style stream keeps the homepage focused, while the full archive remains a tap away.</p>
             </div>
-            <Link to="/review" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 transition hover:text-cyan-200">
-              Explore all stories <ArrowRight size={16} />
+            <Link to="/latest-articles" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 transition hover:text-cyan-200">
+              Browse all releases <ArrowRight size={16} />
             </Link>
           </div>
 
@@ -423,20 +440,20 @@ const HomePage = () => {
               const shouldShowAd = homepageAds[0] && (index + 1) % 3 === 0;
               return (
                 <div key={release.slug} className="space-y-6">
-                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
+                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.6rem] border border-white/10 bg-slate-950/80">
                     <div className="overflow-hidden">
-                      <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+                      <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-52 w-full object-cover transition duration-500 group-hover:scale-110" />
                     </div>
-                    <div className="p-6">
+                    <div className="p-7 sm:p-8">
                       <div className="flex items-center justify-between gap-3">
                         <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{release.category}</span>
                         <span className="text-sm text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
                       </div>
-                      <h3 className="mt-4 text-xl font-semibold text-white">{release.title}</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-400">{release.description}</p>
-                      <div className="mt-5 flex items-center justify-between text-sm text-slate-400">
+                      <h3 className="article-card-title mt-5 text-[1.12rem] font-semibold leading-tight text-white">{release.title}</h3>
+                      <p className="mt-4 text-[0.95rem] leading-7 text-slate-400">{release.description}</p>
+                      <div className="mt-6 flex items-center justify-between text-sm text-slate-400">
                         <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
-                        <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition group-hover:gap-3">
+                        <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3.5 py-2 font-semibold text-cyan-300 transition group-hover:gap-3">
                           Continue Reading <ArrowRight size={14} />
                         </Link>
                       </div>
@@ -448,45 +465,19 @@ const HomePage = () => {
             })}
           </div>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            {visibleOlderArticles.map((release, index) => {
-              const showInlineAd = homepageAds[0] && (index + 1) % 2 === 0;
-              return (
-                <div key={release.slug} className="space-y-6">
-                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -6, scale: 1.01 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
-                    <div className="overflow-hidden">
-                      <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
-                    </div>
-                    <div className="p-6">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{release.category}</span>
-                        <span className="text-sm text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
-                      </div>
-                      <h3 className="mt-4 text-xl font-semibold text-white">{release.title}</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-400">{release.description}</p>
-                      <div className="mt-5 flex items-center justify-between text-sm text-slate-400">
-                        <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
-                        <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition group-hover:gap-3">
-                          Read now <ArrowRight size={14} />
-                        </Link>
-                      </div>
-                    </div>
-                  </motion.article>
-                  {showInlineAd && homepageAds[0] ? <AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-cyan-400/20" /> : null}
-                </div>
-              );
-            })}
+          <div className="mt-8 flex justify-center">
+            <Link to="/latest-articles" className="inline-flex items-center justify-center rounded-full border border-cyan-400/20 bg-white/5 px-6 py-3 text-[0.95rem] font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:bg-cyan-500/10">
+              Explore More Articles
+            </Link>
           </div>
-
-          {visibleOlderArticles.length < olderArticles.length ? <div ref={loadMoreRef} className="mt-6 text-center text-sm text-slate-400">Loading more stories…</div> : null}
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Featured Technology Stories</p>
-            <h2 className="mt-2 text-3xl font-semibold text-white">Across the Labs</h2>
+            <h2 className="section-heading mt-2 font-semibold text-white">Across the Labs</h2>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 outline-none" placeholder="Search stories" />
@@ -499,7 +490,7 @@ const HomePage = () => {
             </div>
           </div>
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {featuredStories.map((story, index) => {
             const shouldShowStoryAd = index === 1 && storyAds[0];
             return (
@@ -507,15 +498,15 @@ const HomePage = () => {
                 <Link to={`/articles/${story.slug}`} state={{ article: story }} className="group block">
                   <motion.article whileHover={{ y: -6, scale: 1.01 }} className="group relative h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-slate-900/80 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] transition-all duration-300 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
                     <div className="overflow-hidden">
-                      <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={story.image || '/placeholder.jpg'} alt={story.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+                      <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={story.image || '/placeholder.jpg'} alt={story.title} className="h-52 w-full object-cover transition duration-500 group-hover:scale-110" />
                     </div>
-                    <div className="p-6">
+                    <div className="p-7 sm:p-8">
                       <div className="flex items-center justify-between gap-3">
                         <span className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">{story.category}</span>
                         <span className="text-sm text-slate-500">{story.createdAt ? new Date(story.createdAt).toLocaleDateString() : 'New'}</span>
                       </div>
-                      <h3 className="mt-4 text-xl font-semibold text-white">{story.title}</h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-400">{story.description}</p>
+                      <h3 className="article-card-title mt-5 text-[1.12rem] font-semibold leading-tight text-white">{story.title}</h3>
+                      <p className="mt-4 text-[0.95rem] leading-7 text-slate-400">{story.description}</p>
                       <div className="mt-6 flex items-center justify-between text-sm text-slate-400">
                         <span>{story.author || 'Innovation X Lab'}</span>
                         <span className="inline-flex items-center gap-2 text-cyan-300">Read story <ArrowRight size={14} /></span>
@@ -527,6 +518,11 @@ const HomePage = () => {
               </div>
             );
           })}
+        </div>
+        <div className="mt-8 flex justify-center">
+          <Link to="/featured-stories" className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 text-[0.95rem] font-semibold text-white transition hover:-translate-y-0.5">
+            Explore More Stories
+          </Link>
         </div>
         {filteredStories.length === 0 && <p className="mt-6 text-sm text-slate-400">No stories match that search yet. Try a different term or category.</p>}
       </section>
