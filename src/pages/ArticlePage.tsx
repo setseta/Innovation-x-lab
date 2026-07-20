@@ -188,6 +188,7 @@ const ArticlePage = () => {
   const articleUrl = articleSlug ? `${siteUrl}/articles/${encodeURIComponent(articleSlug)}` : `${siteUrl}/`;
   const metadataTitle = article ? `${article.title} | ${SITE_NAME}` : `${slug ? `Article: ${slug}` : 'Article'} | ${SITE_NAME}`;
   const metadataDescription = article?.description?.trim() || DEFAULT_ARTICLE_DESCRIPTION;
+  const shareDescription = metadataDescription.replace(/\s+/g, ' ').trim().slice(0, 160);
   const metadataImage = resolveAbsoluteUrl(article?.image || DEFAULT_ARTICLE_IMAGE, siteUrl);
   const contentWithAds = useMemo(() => paragraphs.flatMap((paragraph, index) => {
     const contentNode = <p key={`paragraph-${index}`} className="mb-6 text-[1.02rem] leading-[1.95] text-slate-300 sm:text-[1.12rem]">{paragraph}</p>;
@@ -270,7 +271,14 @@ const ArticlePage = () => {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <SocialIcons className="gap-3" includeCopyLink />
+            <SocialIcons
+              className="gap-3"
+              includeCopyLink
+              includeShareButton
+              shareTitle={article.title}
+              shareText={shareDescription}
+              shareUrl={articleUrl}
+            />
           </div>
 
           {article.image ? (
