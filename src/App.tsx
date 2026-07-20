@@ -21,6 +21,7 @@ import MembershipRegisterPage from './pages/MembershipRegisterPage';
 import MembershipPaymentPage from './pages/MembershipPaymentPage';
 import PaymentStatusPage from './pages/PaymentStatusPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import LazySection from './components/LazySection';
 import FreeMembershipDetailsPage from './pages/FreeMembershipDetailsPage';
 import FreeMembershipSuccessPage from './pages/FreeMembershipSuccessPage';
 
@@ -323,44 +324,46 @@ function App() {
       </main>
 
       <footer className={`border-t ${isDark ? 'border-white/10 bg-[#030712]' : 'border-slate-200 bg-white'}`}>
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-4 lg:px-8">
-          <div>
-            <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Innovation X Lab</h3>
-            <p className={`mt-3 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Exploring the technologies shaping tomorrow through premium editorial coverage and expert analysis.</p>
-            <div className="mt-6">
-              <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Follow Innovation X Lab</h4>
-              <div className="mt-4 flex flex-wrap justify-center gap-3 sm:justify-start">
-                <SocialIcons />
+        <LazySection fallback={null}>
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-4 lg:px-8">
+            <div>
+              <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Innovation X Lab</h3>
+              <p className={`mt-3 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Exploring the technologies shaping tomorrow through premium editorial coverage and expert analysis.</p>
+              <div className="mt-6">
+                <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Follow Innovation X Lab</h4>
+                <div className="mt-4 flex flex-wrap justify-center gap-3 sm:justify-start">
+                  <SocialIcons />
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Categories</h4>
+              <ul className={`mt-4 space-y-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                {labSections.map((section) => (
+                  <li key={section.title}>
+                    <Link to={section.href} className="transition hover:text-cyan-300">{section.title}</Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Contact</h4>
+              <ul className={`mt-4 space-y-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                <li>hello@innovationxlab.com</li>
+                <li>Global</li>
+                <li><Link to="/advertise" className="transition hover:text-cyan-300">Advertise With Us</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Newsletter</h4>
+              <p className={`mt-4 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Receive weekly updates on AI breakthroughs, gadgets, and startup innovation.</p>
+              <div className="mt-4 flex flex-col gap-2">
+                <input className={`rounded-full border px-4 py-3 text-sm outline-none ring-0 ${isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`} placeholder="Email address" />
+                <button className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-4 py-3 text-sm font-semibold text-white">Subscribe</button>
               </div>
             </div>
           </div>
-          <div>
-            <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Categories</h4>
-            <ul className={`mt-4 space-y-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              {labSections.map((section) => (
-                <li key={section.title}>
-                  <Link to={section.href} className="transition hover:text-cyan-300">{section.title}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Contact</h4>
-            <ul className={`mt-4 space-y-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-              <li>hello@innovationxlab.com</li>
-              <li>Global</li>
-              <li><Link to="/advertise" className="transition hover:text-cyan-300">Advertise With Us</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className={`text-sm font-semibold uppercase tracking-[0.25em] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Newsletter</h4>
-            <p className={`mt-4 text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Receive weekly updates on AI breakthroughs, gadgets, and startup innovation.</p>
-            <div className="mt-4 flex flex-col gap-2">
-              <input className={`rounded-full border px-4 py-3 text-sm outline-none ring-0 ${isDark ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white'}`} placeholder="Email address" />
-              <button className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-4 py-3 text-sm font-semibold text-white">Subscribe</button>
-            </div>
-          </div>
-        </div>
+        </LazySection>
       </footer>
 
       {showBackToTop && (

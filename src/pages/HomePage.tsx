@@ -4,20 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import AdvertisementCard from '../components/AdvertisementCard';
+import LazySection from '../components/LazySection';
 import { buildApiUrl } from '../config/api';
+import { getHomepageArticlesCacheKey, getStoredHomepageArticles, mergeHomepageArticles, setStoredHomepageArticles, type HomepageArticle } from '../utils/homepageArticles';
 
-type Article = {
-  _id: string;
-  title: string;
-  slug: string;
-  category: string;
-  description: string;
-  image?: string;
-  author?: string;
-  content?: string;
-  published?: boolean;
-  createdAt?: string;
-};
+type Article = HomepageArticle;
 
 type Advertisement = {
   _id: string;
@@ -32,7 +23,8 @@ type Advertisement = {
 const HomePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [articles, setArticles] = useState<Article[]>(() => getStoredHomepageArticles(getHomepageArticlesCacheKey('All')));
+  const [isArticlesLoading, setIsArticlesLoading] = useState(articles.length === 0);
   const [heroAds, setHeroAds] = useState<Advertisement[]>([]);
   const [homepageAds, setHomepageAds] = useState<Advertisement[]>([]);
   const [storyAds, setStoryAds] = useState<Advertisement[]>([]);
@@ -41,6 +33,7 @@ const HomePage = () => {
   const [newsletterStatus, setNewsletterStatus] = useState('');
   const [visibleOlderCount, setVisibleOlderCount] = useState(4);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const latestArticlesRequestRef = useRef<AbortController | null>(null);
 
   const categories = ['All', 'AI Lab', 'Gadget Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
 
@@ -86,20 +79,81 @@ const HomePage = () => {
   ];
 
   const fetchArticles = async (category?: string) => {
+    const targetCategory = category && category !== 'All' ? category : 'All';
+    const cacheKey = getHomepageArticlesCacheKey(targetCategory);
+    const cachedArticles = getStoredHomepageArticles(cacheKey);
+
+    if (cachedArticles.length > 0) {
+      setArticles(cachedArticles);
+      setIsArticlesLoading(false);
+    } else {
+      setIsArticlesLoading(true);
+    }
+
+    latestArticlesRequestRef.current?.abort();
+    const requestController = new AbortController();
+    latestArticlesRequestRef.current = requestController;
+
+    const base = '/api/articles?published=true';
+    const url = targetCategory !== 'All' ? `${base}&category=${encodeURIComponent(targetCategory)}` : base;
+
     try {
-      const base = '/api/articles?published=true';
-      const url = category && category !== 'All' ? `${base}&category=${encodeURIComponent(category)}` : base;
-      const response = await fetch(buildApiUrl(url));
+      const response = await fetch(buildApiUrl(url), { signal: requestController.signal });
+      if (!response.ok) {
+        throw new Error(`Unable to load articles (${response.status})`);
+      }
       const data = await response.json();
-      setArticles(Array.isArray(data) ? data : []);
+      const normalizedArticles = Array.isArray(data) ? data : [];
+      const nextArticles = mergeHomepageArticles(cachedArticles, normalizedArticles);
+      setStoredHomepageArticles(nextArticles, cacheKey);
+      setArticles(nextArticles);
     } catch (error) {
-      console.error(error);
-      setArticles([]);
+      if ((error as Error).name !== 'AbortError') {
+        console.error(error);
+        if (cachedArticles.length === 0) {
+          setArticles([]);
+        }
+      }
+    } finally {
+      if (latestArticlesRequestRef.current?.signal === requestController.signal) {
+        setIsArticlesLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchArticles();
+    void Promise.all([
+      fetchArticles(),
+      (async () => {
+        try {
+          const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
+            fetch(buildApiUrl('/api/advertisements?placement=hero-banner')),
+            fetch(buildApiUrl('/api/advertisements?placement=homepage-banner')),
+            fetch(buildApiUrl('/api/advertisements?placement=story-card')),
+            fetch(buildApiUrl('/api/advertisements?placement=newsletter-sponsorship')),
+          ]);
+          const heroData = await heroResponse.json();
+          const homepageData = await homepageResponse.json();
+          const storyData = await storyResponse.json();
+          const newsletterData = await newsletterResponse.json();
+          setHeroAds(Array.isArray(heroData) ? heroData : []);
+          setHomepageAds(Array.isArray(homepageData) ? homepageData : []);
+          setStoryAds(Array.isArray(storyData) ? storyData : []);
+          setNewsletterAds(Array.isArray(newsletterData) ? newsletterData : []);
+        } catch (error) {
+          console.error(error);
+          setHomepageAds([]);
+          setNewsletterAds([]);
+        }
+      })(),
+    ]);
+
+    return () => {
+      latestArticlesRequestRef.current?.abort();
+    };
+  }, []);
+
+  /*
     const fetchAds = async () => {
       try {
         const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
@@ -124,6 +178,7 @@ const HomePage = () => {
     };
     fetchAds();
   }, []);
+*/
 
   const filteredStories = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -137,6 +192,27 @@ const HomePage = () => {
   const featuredStories = filteredStories.slice(0, 6);
   const latestArticles = filteredStories.slice(1, 6);
   const olderArticles = filteredStories.slice(6);
+
+  useEffect(() => {
+    if (!featuredArticle?.slug) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const prefetchUrl = buildApiUrl(`/api/articles/${encodeURIComponent(featuredArticle.slug)}`);
+    const prefetchArticle = async () => {
+      try {
+        await fetch(prefetchUrl, { signal: controller.signal });
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Unable to prefetch article', error);
+        }
+      }
+    };
+
+    void prefetchArticle();
+    return () => controller.abort();
+  }, [featuredArticle?.slug]);
   const visibleOlderArticles = olderArticles.slice(0, visibleOlderCount);
   const trendingArticles = filteredStories.slice(0, 3);
 
@@ -193,6 +269,7 @@ const HomePage = () => {
       <Helmet>
         <title>Innovation X Lab | Future Technology Media</title>
         <meta name="description" content="Explore AI, gadgets, software, coding, and startup innovation at Innovation X Lab." />
+        {featuredArticle?.image ? <link rel="preload" as="image" href={featuredArticle.image} /> : null}
       </Helmet>
 
       <section className="relative overflow-hidden">
@@ -301,7 +378,7 @@ const HomePage = () => {
             <motion.article initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-8 overflow-hidden rounded-[1.7rem] border border-white/10 bg-slate-950/80">
               <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
                 <div className="overflow-hidden">
-                  <img src={featuredArticle.image || '/placeholder.jpg'} alt={featuredArticle.title} className="h-full min-h-[320px] w-full object-cover" />
+                  <img loading="eager" decoding="async" src={featuredArticle.image || '/placeholder.jpg'} alt={featuredArticle.title} className="h-full min-h-[320px] w-full object-cover" />
                 </div>
                 <div className="p-6 sm:p-8 lg:p-10">
                   <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
@@ -323,6 +400,22 @@ const HomePage = () => {
                 </div>
               </div>
             </motion.article>
+          ) : null}
+
+          {isArticlesLoading && articles.length === 0 ? (
+            <div className="mt-8 grid gap-6 xl:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={`skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
+                  <div className="h-48 w-full animate-pulse bg-slate-800" />
+                  <div className="space-y-3 p-6">
+                    <div className="h-3 w-24 animate-pulse rounded-full bg-slate-800" />
+                    <div className="h-6 w-full animate-pulse rounded-full bg-slate-800" />
+                    <div className="h-4 w-full animate-pulse rounded-full bg-slate-800" />
+                    <div className="h-4 w-4/5 animate-pulse rounded-full bg-slate-800" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : null}
 
           <div className="mt-8 grid gap-6 xl:grid-cols-3">
@@ -414,7 +507,7 @@ const HomePage = () => {
                 <Link to={`/articles/${story.slug}`} state={{ article: story }} className="group block">
                   <motion.article whileHover={{ y: -6, scale: 1.01 }} className="group relative h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-slate-900/80 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] transition-all duration-300 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
                     <div className="overflow-hidden">
-                      <img src={story.image || '/placeholder.jpg'} alt={story.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+                      <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={story.image || '/placeholder.jpg'} alt={story.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
                     </div>
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-3">
@@ -503,7 +596,7 @@ const HomePage = () => {
           {trendingArticles.map((article) => (
             <Link key={article.slug} to={`/articles/${article.slug}`} state={{ article }} className="group block">
               <div className="h-full rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-800/80 p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
-                <img src={article.image || '/placeholder.jpg'} alt={article.title} className="mb-5 h-40 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105" />
+                <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={article.image || '/placeholder.jpg'} alt={article.title} className="mb-5 h-40 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105" />
                 <div className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">{article.category}</div>
                 <h3 className="mt-3 text-xl font-semibold text-white">{article.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-400">{article.description}</p>
@@ -517,46 +610,50 @@ const HomePage = () => {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
-        <div className="rounded-[2rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-8 lg:p-12">
-          <div className="grid gap-8 lg:grid-cols-[1fr_0.85fr]">
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Innovation Showcase</p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">A glimpse into the next decade of invention</h2>
-              <p className="mt-4 max-w-2xl text-lg text-slate-300">From immersive AI interfaces to autonomous hardware and productivity platforms, our coverage highlights the technologies turning bold ideas into reality.</p>
-            </div>
-            <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-6 text-sm text-slate-300">
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3"><span className="mt-1 text-cyan-400">•</span><span>Emerging AI experiences that feel conversational, adaptive, and intelligent.</span></li>
-                <li className="flex items-start gap-3"><span className="mt-1 text-cyan-400">•</span><span>Next-gen gadget reviews grounded in real-world testing and performance data.</span></li>
-                <li className="flex items-start gap-3"><span className="mt-1 text-cyan-400">•</span><span>Developer tools, startup stories, and software ecosystems ready for scale.</span></li>
-              </ul>
+      <LazySection fallback={null}>
+        <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
+          <div className="rounded-[2rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 p-8 lg:p-12">
+            <div className="grid gap-8 lg:grid-cols-[1fr_0.85fr]">
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Innovation Showcase</p>
+                <h2 className="mt-3 text-3xl font-semibold text-white">A glimpse into the next decade of invention</h2>
+                <p className="mt-4 max-w-2xl text-lg text-slate-300">From immersive AI interfaces to autonomous hardware and productivity platforms, our coverage highlights the technologies turning bold ideas into reality.</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-6 text-sm text-slate-300">
+                <ul className="space-y-4">
+                  <li className="flex items-start gap-3"><span className="mt-1 text-cyan-400">•</span><span>Emerging AI experiences that feel conversational, adaptive, and intelligent.</span></li>
+                  <li className="flex items-start gap-3"><span className="mt-1 text-cyan-400">•</span><span>Next-gen gadget reviews grounded in real-world testing and performance data.</span></li>
+                  <li className="flex items-start gap-3"><span className="mt-1 text-cyan-400">•</span><span>Developer tools, startup stories, and software ecosystems ready for scale.</span></li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </LazySection>
 
-      <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
-        <div className="rounded-[2rem] border border-white/10 bg-[#070d1d] p-8 lg:p-12">
-          <div className="max-w-2xl">
-            <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Newsletter</p>
-            <h2 className="mt-3 text-3xl font-semibold text-white">Stay Ahead Of The Future</h2>
-            <p className="mt-4 text-lg text-slate-300">Join innovators, founders, and technology enthusiasts receiving thoughtful analysis each week.</p>
-          </div>
-          <form onSubmit={handleNewsletterSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <input value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none" placeholder="Enter your email" />
-            <button type="submit" className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white">Subscribe</button>
-          </form>
-          {newsletterAds.length > 0 ? (
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              {newsletterAds.map((ad) => (
-                <AdvertisementCard key={ad._id} advertisement={ad} variant="newsletter" className="border-white/10 bg-slate-950/70" />
-              ))}
+      <LazySection fallback={null}>
+        <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
+          <div className="rounded-[2rem] border border-white/10 bg-[#070d1d] p-8 lg:p-12">
+            <div className="max-w-2xl">
+              <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Newsletter</p>
+              <h2 className="mt-3 text-3xl font-semibold text-white">Stay Ahead Of The Future</h2>
+              <p className="mt-4 text-lg text-slate-300">Join innovators, founders, and technology enthusiasts receiving thoughtful analysis each week.</p>
             </div>
-          ) : null}
-          {newsletterStatus ? <p className="mt-3 text-sm text-cyan-300">{newsletterStatus}</p> : null}
-        </div>
-      </section>
+            <form onSubmit={handleNewsletterSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <input value={newsletterEmail} onChange={(event) => setNewsletterEmail(event.target.value)} className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none" placeholder="Enter your email" />
+              <button type="submit" className="rounded-full bg-gradient-to-r from-cyan-500 to-violet-600 px-6 py-3 font-semibold text-white">Subscribe</button>
+            </form>
+            {newsletterAds.length > 0 ? (
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                {newsletterAds.map((ad) => (
+                  <AdvertisementCard key={ad._id} advertisement={ad} variant="newsletter" className="border-white/10 bg-slate-950/70" />
+                ))}
+              </div>
+            ) : null}
+            {newsletterStatus ? <p className="mt-3 text-sm text-cyan-300">{newsletterStatus}</p> : null}
+          </div>
+        </section>
+      </LazySection>
     </div>
   );
 };
