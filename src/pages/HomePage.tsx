@@ -200,7 +200,7 @@ const HomePage = () => {
   const latestReleases = useMemo(() => articles.slice(0, 4), [articles]);
   const heroArticle = latestReleases[0] ?? null;
   const compactLatestReleases = latestReleases.slice(1);
-  const acrossLabStories = filteredStories.slice(4, 10);
+  const acrossLabStories = filteredStories.slice(4, 8);
 
   const getStoryExcerpt = (story: Article) => {
     const rawText = story.excerpt || story.description || story.content || '';
@@ -310,11 +310,8 @@ const HomePage = () => {
         <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:34px_34px]" />
         <div className="absolute left-10 top-20 h-24 w-24 rounded-full bg-cyan-400/20 blur-3xl" />
         <div className="absolute bottom-16 right-12 h-32 w-32 rounded-full bg-violet-500/20 blur-3xl" />
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:gap-12 lg:px-8 lg:py-32">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:gap-10 sm:px-6 sm:py-20 lg:grid-cols-1 lg:gap-12 lg:px-8 lg:py-32">
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="relative z-10">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-300 sm:mb-6">
-              Premium technology intelligence
-            </div>
             <h1 className="hero-heading mt-3 max-w-3xl font-semibold leading-tight text-white">
               Exploring The Technologies That Shape Tomorrow
             </h1>
@@ -333,50 +330,6 @@ const HomePage = () => {
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Global partnerships</span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Emerging tech coverage</span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">Founder-led insights</span>
-            </div>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.7 }} className="relative w-full min-w-0">
-            <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-cyan-500/25 via-violet-500/10 to-transparent blur-3xl" />
-            <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/70 p-4 shadow-[0_0_50px_rgba(14,165,233,0.12)] sm:p-6">
-              <div className="rounded-[1.4rem] border border-cyan-400/20 bg-[#060b1b] p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-sm text-cyan-300">Innovation X Lab Experiments</span>
-                  <span className="text-sm text-slate-400">Future Interface</span>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <Cpu className="mb-3 text-cyan-400" size={24} />
-                    <h3 className="font-semibold text-white">Neural Systems</h3>
-                    <p className="mt-2 text-sm text-slate-400">AI orchestration and autonomous research loops.</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <Zap className="mb-3 text-violet-400" size={24} />
-                    <h3 className="font-semibold text-white">Quantum Hardware</h3>
-                    <p className="mt-2 text-sm text-slate-400">Hardware breakthroughs for next-generation experiences.</p>
-                  </div>
-                </div>
-                <div className="mt-6 rounded-2xl border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.25),transparent_45%),linear-gradient(135deg,rgba(15,23,42,1),rgba(2,6,23,1))] p-4">
-                  <div className="mb-4 flex items-center gap-2 text-sm text-cyan-300">
-                    <Activity size={16} />
-                    <span>Innovation Activity Monitor</span>
-                  </div>
-                  <p className="mb-4 text-sm text-slate-400">This reflects Innovation X Lab research and editorial focus, not external market metrics.</p>
-                  <div className="space-y-3">
-                    {activityAreas.slice(0, 4).map((area) => (
-                      <div key={area.name}>
-                        <div className="mb-1 flex items-center justify-between text-sm">
-                          <span className="text-slate-200">{area.name}</span>
-                          <span className="text-cyan-300">{area.level}%</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-white/10">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${area.level}%` }} transition={{ duration: 0.8, ease: 'easeOut' }} className="h-2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-600" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
           </motion.div>
         </div>
@@ -533,7 +486,7 @@ const HomePage = () => {
             </div>
           </div>
         </div>
-        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
           {acrossLabStories.map((story, index) => {
             const shouldShowStoryAd = index === 1 && storyAds[0];
             return (
