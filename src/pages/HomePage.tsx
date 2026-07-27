@@ -200,7 +200,7 @@ const HomePage = () => {
   const latestReleases = useMemo(() => articles.slice(0, 4), [articles]);
   const heroArticle = latestReleases[0] ?? null;
   const compactLatestReleases = latestReleases.slice(1);
-  const acrossLabStories = filteredStories.slice(4, 8);
+  const acrossLabStories = filteredStories.slice(3, 7);
 
   const getStoryExcerpt = (story: Article) => {
     const rawText = story.excerpt || story.description || story.content || '';
