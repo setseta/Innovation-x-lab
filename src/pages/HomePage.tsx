@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Share2, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import AdvertisementCard from '../components/AdvertisementCard';
 import LazySection from '../components/LazySection';
 import { buildApiUrl } from '../config/api';
@@ -21,13 +21,10 @@ type Advertisement = {
 };
 
 const HomePage = () => {
-  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [articles, setArticles] = useState<Article[]>(() => getStoredHomepageArticles(getHomepageArticlesCacheKey('All')));
   const [isArticlesLoading, setIsArticlesLoading] = useState(articles.length === 0);
-  const [showArticleSkeleton, setShowArticleSkeleton] = useState(false);
-  const [hasLoadedHomepageArticles, setHasLoadedHomepageArticles] = useState(Boolean(articles.length));
   const [heroAds, setHeroAds] = useState<Advertisement[]>([]);
   const [homepageAds, setHomepageAds] = useState<Advertisement[]>([]);
   const [storyAds, setStoryAds] = useState<Advertisement[]>([]);
@@ -87,14 +84,12 @@ const HomePage = () => {
 
     if (cachedArticles.length > 0 && isCachedFresh && !options?.forceRefresh) {
       setArticles(cachedArticles);
-      setHasLoadedHomepageArticles(true);
       setIsArticlesLoading(false);
       return;
     }
 
     if (cachedArticles.length > 0) {
       setArticles(cachedArticles);
-      setHasLoadedHomepageArticles(true);
       setIsArticlesLoading(false);
     } else {
       setIsArticlesLoading(true);
@@ -120,7 +115,6 @@ const HomePage = () => {
       const nextArticles = await requestPromise;
       if (latestArticlesRequestRef.current?.signal === requestController.signal) {
         setArticles(nextArticles);
-        setHasLoadedHomepageArticles(true);
       }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
@@ -137,31 +131,30 @@ const HomePage = () => {
   };
 
   useEffect(() => {
-    void Promise.all([
-      fetchArticles({ forceRefresh: false }),
-      (async () => {
-        try {
-          const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
-            fetch(buildApiUrl('/api/advertisements?placement=hero-banner')),
-            fetch(buildApiUrl('/api/advertisements?placement=homepage-banner')),
-            fetch(buildApiUrl('/api/advertisements?placement=story-card')),
-            fetch(buildApiUrl('/api/advertisements?placement=newsletter-sponsorship')),
-          ]);
-          const heroData = await heroResponse.json();
-          const homepageData = await homepageResponse.json();
-          const storyData = await storyResponse.json();
-          const newsletterData = await newsletterResponse.json();
-          setHeroAds(Array.isArray(heroData) ? heroData : []);
-          setHomepageAds(Array.isArray(homepageData) ? homepageData : []);
-          setStoryAds(Array.isArray(storyData) ? storyData : []);
-          setNewsletterAds(Array.isArray(newsletterData) ? newsletterData : []);
-        } catch (error) {
-          console.error(error);
-          setHomepageAds([]);
-          setNewsletterAds([]);
-        }
-      })(),
-    ]);
+    void fetchArticles({ forceRefresh: false });
+
+    (async () => {
+      try {
+        const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
+          fetch(buildApiUrl('/api/advertisements?placement=hero-banner')),
+          fetch(buildApiUrl('/api/advertisements?placement=homepage-banner')),
+          fetch(buildApiUrl('/api/advertisements?placement=story-card')),
+          fetch(buildApiUrl('/api/advertisements?placement=newsletter-sponsorship')),
+        ]);
+        const heroData = await heroResponse.json();
+        const homepageData = await homepageResponse.json();
+        const storyData = await storyResponse.json();
+        const newsletterData = await newsletterResponse.json();
+        setHeroAds(Array.isArray(heroData) ? heroData : []);
+        setHomepageAds(Array.isArray(homepageData) ? homepageData : []);
+        setStoryAds(Array.isArray(storyData) ? storyData : []);
+        setNewsletterAds(Array.isArray(newsletterData) ? newsletterData : []);
+      } catch (error) {
+        console.error(error);
+        setHomepageAds([]);
+        setNewsletterAds([]);
+      }
+    })();
 
     return () => {
       latestArticlesRequestRef.current?.abort();
@@ -204,11 +197,10 @@ const HomePage = () => {
     });
   }, [searchTerm, activeCategory, articles]);
 
-  const latestReleases = filteredStories.slice(0, 4);
+  const latestReleases = useMemo(() => articles.slice(0, 4), [articles]);
   const heroArticle = latestReleases[0] ?? null;
   const compactLatestReleases = latestReleases.slice(1);
   const acrossLabStories = filteredStories.slice(4, 10);
-  const hasActiveStoryFilters = searchTerm.trim().length > 0 || activeCategory !== 'All';
 
   const getStoryExcerpt = (story: Article) => {
     const rawText = story.excerpt || story.description || story.content || '';
@@ -285,24 +277,7 @@ const HomePage = () => {
     return () => controller.abort();
   }, [heroArticle?.slug]);
 
-  useEffect(() => {
-    if (!hasLoadedHomepageArticles && location.pathname === '/') {
-      void fetchArticles({ forceRefresh: false });
-    }
-  }, [hasLoadedHomepageArticles, location.pathname]);
-
-  useEffect(() => {
-    if (!isArticlesLoading || articles.length > 0) {
-      setShowArticleSkeleton(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setShowArticleSkeleton(true);
-    }, 300);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [articles.length, isArticlesLoading]);
+  const shouldShowInitialSkeleton = isArticlesLoading && articles.length === 0;
 
   const trendingArticles = filteredStories.slice(0, 3);
 
@@ -434,7 +409,7 @@ const HomePage = () => {
 
 
 
-          {showArticleSkeleton && articles.length === 0 ? (
+          {shouldShowInitialSkeleton ? (
             <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={`skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
@@ -451,7 +426,7 @@ const HomePage = () => {
           ) : null}
 
           <div className="mt-8 space-y-8">
-            {(isArticlesLoading && articles.length === 0) ? (
+            {shouldShowInitialSkeleton ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <div key={`latest-skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
                   <div className="h-48 w-full animate-pulse bg-slate-800" />
@@ -592,7 +567,6 @@ const HomePage = () => {
             Explore More Stories
           </Link>
         </div>
-        {hasActiveStoryFilters && filteredStories.length === 0 ? <p className="mt-6 text-sm text-slate-400">No stories match that search yet. Try a different term or category.</p> : null}
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
