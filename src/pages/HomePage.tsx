@@ -28,6 +28,8 @@ const HomePage = () => {
   const [isArticlesLoading, setIsArticlesLoading] = useState(articles.length === 0);
   const [showArticleSkeleton, setShowArticleSkeleton] = useState(false);
   const [hasLoadedHomepageArticles, setHasLoadedHomepageArticles] = useState(Boolean(articles.length));
+  const [latestReleases, setLatestReleases] = useState<Article[]>([]);
+  const [latestReleasesLoading, setLatestReleasesLoading] = useState(true);
   const [heroAds, setHeroAds] = useState<Advertisement[]>([]);
   const [homepageAds, setHomepageAds] = useState<Advertisement[]>([]);
   const [storyAds, setStoryAds] = useState<Advertisement[]>([]);
@@ -43,6 +45,7 @@ const HomePage = () => {
   });
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const latestArticlesRequestRef = useRef<AbortController | null>(null);
+  const latestReleasesRequestRef = useRef<AbortController | null>(null);
 
   const categories = ['All', 'AI Lab', 'Gadget Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
 
@@ -145,6 +148,32 @@ const HomePage = () => {
     }
   };
 
+  const loadLatestReleases = async () => {
+    latestReleasesRequestRef.current?.abort();
+    const requestController = new AbortController();
+    latestReleasesRequestRef.current = requestController;
+
+    setLatestReleasesLoading(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/articles?published=true&limit=3'), { signal: requestController.signal });
+      if (!response.ok) {
+        throw new Error(`Unable to load latest releases (${response.status})`);
+      }
+      const data = await response.json();
+      const normalizedArticles = Array.isArray(data) ? data : [];
+      setLatestReleases(normalizedArticles);
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error(error);
+        setLatestReleases([]);
+      }
+    } finally {
+      if (latestReleasesRequestRef.current?.signal === requestController.signal) {
+        setLatestReleasesLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
     const handleResize = () => {
       setFeaturedStoriesCount(window.innerWidth >= 1280 ? 6 : 4);
@@ -159,6 +188,7 @@ const HomePage = () => {
   useEffect(() => {
     void Promise.all([
       fetchArticles(undefined, { forceRefresh: false }),
+      loadLatestReleases(),
       (async () => {
         try {
           const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
@@ -223,18 +253,17 @@ const HomePage = () => {
     });
   }, [searchTerm, articles]);
 
-  const featuredArticle = filteredStories[0] ?? null;
+  const heroArticle = latestReleases[0] ?? null;
   const featuredStories = filteredStories.slice(0, featuredStoriesCount);
-  const latestArticles = filteredStories.slice(1, 4);
   const olderArticles = filteredStories.slice(4);
 
   useEffect(() => {
-    if (!featuredArticle?.slug) {
+    if (!heroArticle?.slug) {
       return;
     }
 
     const controller = new AbortController();
-    const prefetchUrl = buildApiUrl(`/api/articles/${encodeURIComponent(featuredArticle.slug)}`);
+    const prefetchUrl = buildApiUrl(`/api/articles/${encodeURIComponent(heroArticle.slug)}`);
     const prefetchArticle = async () => {
       try {
         await fetch(prefetchUrl, { signal: controller.signal });
@@ -247,7 +276,7 @@ const HomePage = () => {
 
     void prefetchArticle();
     return () => controller.abort();
-  }, [featuredArticle?.slug]);
+  }, [heroArticle?.slug]);
 
   useEffect(() => {
     if (!hasLoadedHomepageArticles && location.pathname === '/') {
@@ -269,16 +298,6 @@ const HomePage = () => {
   }, [articles.length, isArticlesLoading]);
   const visibleOlderArticles = olderArticles.slice(0, visibleOlderCount);
   const trendingArticles = filteredStories.slice(0, 3);
-
-  const getPreviewText = (content?: string) => {
-    const blocks = (content || '').split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
-    const previewBlocks = blocks.slice(0, 2);
-    const previewText = previewBlocks.join(' ').trim();
-    if (!previewText) {
-      return '';
-    }
-    return previewText.length > 360 ? `${previewText.slice(0, 360)}…` : previewText;
-  };
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -323,7 +342,7 @@ const HomePage = () => {
       <Helmet>
         <title>Innovation X Lab | Future Technology Media</title>
         <meta name="description" content="Explore AI, gadgets, software, coding, and startup innovation at Innovation X Lab." />
-        {featuredArticle?.image ? <link rel="preload" as="image" href={featuredArticle.image} /> : null}
+        {heroArticle?.image ? <link rel="preload" as="image" href={heroArticle.image} /> : null}
       </Helmet>
 
       <section className="relative overflow-hidden">
@@ -428,33 +447,7 @@ const HomePage = () => {
             </Link>
           </div>
 
-          {featuredArticle ? (
-            <motion.article initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-8 border-b border-white/10 pb-10">
-              <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-                <div className="overflow-hidden">
-                  <img loading="eager" decoding="async" fetchPriority="high" sizes="(min-width: 1024px) 50vw, 100vw" src={optimizeImageUrl(featuredArticle.image, 1400)} alt={featuredArticle.title} className="h-[280px] w-full object-cover sm:h-[360px] lg:h-[440px]" />
-                </div>
-                <div className="max-w-2xl">
-                  <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
-                    <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{featuredArticle.category}</span>
-                    <span className="text-slate-500">{featuredArticle.createdAt ? new Date(featuredArticle.createdAt).toLocaleDateString() : 'Just published'}</span>
-                  </div>
-                  <h3 className="home-editorial-title mt-5 text-white">{featuredArticle.title}</h3>
-                  <p className="home-article-body mt-4 text-slate-300">{featuredArticle.description}</p>
-                  <p className="home-article-body mt-4 text-slate-400">{getPreviewText(featuredArticle.content)}</p>
-                  <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-5 text-sm text-slate-400">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span>{Math.max(3, Math.ceil(((featuredArticle.content || '') as string).split(/\s+/).length / 180))} min read</span>
-                      <span>By {featuredArticle.author || 'Innovation X Lab'}</span>
-                    </div>
-                    <Link to={`/articles/${featuredArticle.slug}`} state={{ article: featuredArticle }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
-                      Continue Reading <ArrowRight size={14} />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </motion.article>
-          ) : null}
+
 
           {showArticleSkeleton && articles.length === 0 ? (
             <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -473,7 +466,19 @@ const HomePage = () => {
           ) : null}
 
           <div className="mt-8 space-y-8">
-            {latestArticles.map((release, index) => {
+            {(latestReleasesLoading && latestReleases.length === 0) ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={`latest-skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
+                  <div className="h-48 w-full animate-pulse bg-slate-800" />
+                  <div className="space-y-3 p-6">
+                    <div className="h-3 w-24 animate-pulse rounded-full bg-slate-800" />
+                    <div className="h-6 w-full animate-pulse rounded-full bg-slate-800" />
+                    <div className="h-4 w-full animate-pulse rounded-full bg-slate-800" />
+                    <div className="h-4 w-4/5 animate-pulse rounded-full bg-slate-800" />
+                  </div>
+                </div>
+              ))
+            ) : latestReleases.map((release, index) => {
               const shouldShowAd = homepageAds[0] && (index + 1) % 3 === 0;
               return (
                 <div key={release.slug} className="space-y-6">
@@ -490,7 +495,7 @@ const HomePage = () => {
                         <h3 className="home-article-title mt-4 text-white">{release.title}</h3>
                         <p className="home-article-body mt-3 text-slate-400">{release.excerpt || release.description}</p>
                         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
-                          <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                          <span>{release.readingTime ?? Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
                           <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
                             Continue Reading <ArrowRight size={14} />
                           </Link>
