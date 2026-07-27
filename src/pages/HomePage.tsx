@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Share2, Zap } from 'lucide-react';
+import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Share2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
