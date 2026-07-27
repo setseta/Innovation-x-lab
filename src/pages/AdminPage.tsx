@@ -516,7 +516,7 @@ const AdminPage = () => {
                 <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Title" />
                 <input value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Slug" />
                 <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none">
-                  {['AI Lab', 'Gadget Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'].map((category) => <option key={category} value={category}>{category}</option>)}
+                  {['AI Lab', 'Gadget Lab', 'Gaming Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'].map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <input value={form.image} onChange={(event) => setForm({ ...form, image: event.target.value })} className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none" placeholder="Image URL" />

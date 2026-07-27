@@ -70,6 +70,7 @@ function App() {
         { label: 'Latest Articles', href: '/latest-articles' },
         { label: 'AI', href: '/ai-lab' },
         { label: 'Gadgets', href: '/gadget-lab' },
+        { label: 'Gaming', href: '/gaming-lab' },
         { label: 'Software', href: '/software-lab' },
         { label: 'Coding', href: '/code-lab' },
         { label: 'Startups', href: '/startup-lab' },
@@ -83,6 +84,7 @@ function App() {
         { label: 'Featured Stories', href: '/featured-stories' },
         { label: 'AI News', href: '/ai-lab' },
         { label: 'Gadget News', href: '/gadget-lab' },
+        { label: 'Gaming News', href: '/gaming-lab' },
         { label: 'Software News', href: '/software-lab' },
         { label: 'Startup News', href: '/startup-lab' },
         { label: 'Industry News', href: '/about' },
@@ -300,6 +302,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/ai-lab" element={<CategoryPage category="AI Lab" />} />
           <Route path="/gadget-lab" element={<CategoryPage category="Gadget Lab" />} />
+          <Route path="/gaming-lab" element={<CategoryPage category="Gaming Lab" />} />
           <Route path="/software-lab" element={<CategoryPage category="Software Lab" />} />
           <Route path="/code-lab" element={<CategoryPage category="Code Lab" />} />
           <Route path="/startup-lab" element={<CategoryPage category="Startup Lab" />} />

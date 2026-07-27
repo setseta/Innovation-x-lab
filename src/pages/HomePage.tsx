@@ -34,7 +34,7 @@ const HomePage = () => {
   const [shareMessage, setShareMessage] = useState('');
   const latestArticlesRequestRef = useRef<AbortController | null>(null);
 
-  const categories = ['All', 'AI Lab', 'Gadget Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
+  const categories = ['All', 'AI Lab', 'Gadget Lab', 'Gaming Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
 
   const experiments = [
     {

@@ -17,7 +17,7 @@ type Article = {
   createdAt?: string;
 };
 
-const categories = ['All', 'AI Lab', 'Gadget Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
+const categories = ['All', 'AI Lab', 'Gadget Lab', 'Gaming Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
 const PAGE_SIZE = 9;
 
 const LatestArticlesPage = () => {
