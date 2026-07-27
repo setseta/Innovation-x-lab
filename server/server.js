@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
@@ -23,13 +24,33 @@ import {
   isPremiumAccessAllowed,
 } from './subscriptionUtils.js';
 import { buildPayPalOrderPayload, getPayPalConfig } from './paypalUtils.js';
+import { buildHomepageArticleQuery, buildHomepageArticleResponse, HOMEPAGE_ARTICLE_SELECT_FIELDS } from './homepageArticleUtils.js';
 
 dotenv.config();
 
 const app = express();
+app.disable('x-powered-by');
+app.use(compression());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+app.use((req, res, next) => {
+  if (req.headers['accept-encoding']?.includes('br')) {
+    res.setHeader('Content-Encoding', 'br');
+  }
+  next();
+});
+
+app.get('/api/health', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ status: 'ok' });
+});
+
+app.get('/api/ping', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, service: 'innovation-x-lab' });
+});
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/innovationxlab';
@@ -165,6 +186,8 @@ const articleSchema = new mongoose.Schema({
   description: { type: String, required: true },
   content: { type: String, required: true },
   image: { type: String, default: '' },
+  publishedAt: { type: Date, default: null },
+  featured: { type: Boolean, default: false },
   author: { type: String, default: 'Innovation X Lab' },
   tags: [{ type: String }],
   seoTitle: String,
@@ -173,6 +196,12 @@ const articleSchema = new mongoose.Schema({
   premium: { type: Boolean, default: false },
   views: { type: Number, default: 0 },
 }, { timestamps: true });
+
+articleSchema.index({ publishedAt: 1 });
+articleSchema.index({ createdAt: 1 });
+articleSchema.index({ slug: 1 });
+articleSchema.index({ category: 1 });
+articleSchema.index({ featured: 1 });
 
 const reviewSchema = new mongoose.Schema({
   productName: { type: String, required: true },
@@ -675,27 +704,20 @@ app.post('/api/auth/logout', (_req, res) => {
 
 app.get('/api/articles', async (req, res) => {
   const { category, published, limit, premium } = req.query;
-  const query = {};
+  const query = buildHomepageArticleQuery({ category, published, premium });
+  const queryLimit = Number(limit || 0);
 
-  if (category) {
-    query.category = String(category);
-  }
+  const articles = await Article.find(query)
+    .select(HOMEPAGE_ARTICLE_SELECT_FIELDS)
+    .sort({ createdAt: -1 })
+    .lean();
 
-  if (published === 'true') {
-    query.published = true;
-  } else if (published === 'false') {
-    query.published = false;
-  }
+  const limited = queryLimit > 0 ? articles.slice(0, queryLimit) : articles;
+  const payload = limited.map((article) => buildHomepageArticleResponse(article));
 
-  if (premium === 'true') {
-    query.premium = true;
-  } else if (premium === 'false') {
-    query.premium = false;
-  }
-
-  const articles = await Article.find(query).sort({ createdAt: -1 }).lean();
-  const limited = limit ? articles.slice(0, Number(limit)) : articles;
-  res.json(limited);
+  res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  res.set('ETag', `"articles-${queryLimit || 'all'}-${String(category || 'all')}-${published || 'all'}"`);
+  res.json(payload);
 });
 
 app.get('/api/articles/:slug', async (req, res) => {
@@ -1575,7 +1597,23 @@ app.get('/api/admin/articles', authenticate, requireAdmin, async (_req, res) => 
   res.json(articles);
 });
 
-app.use(express.static(DIST_DIR, { extensions: ['html'], index: false }));
+app.get('/api/healthz', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true });
+});
+
+app.use(express.static(DIST_DIR, {
+  extensions: ['html'],
+  index: false,
+  maxAge: '1d',
+  etag: true,
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 void loadIndexHtml();
 
 app.get('/articles/:slug', async (req, res) => {
@@ -1671,7 +1709,15 @@ app.get('*', async (req, res) => {
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 }).then(async () => {
   console.log('MongoDB connected');
   await syncAdminAccount({ User, adminEmail: ADMIN_EMAIL, adminPassword: ADMIN_PASSWORD, logger: console });
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  const warmup = setInterval(() => {
+    fetch(`http://127.0.0.1:${PORT}/api/ping`).catch(() => undefined);
+  }, 60000);
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    if (warmup) {
+      fetch(`http://127.0.0.1:${PORT}/api/ping`).catch(() => undefined);
+    }
+  });
 }).catch((error) => {
   console.error('MongoDB connection error', error);
   app.listen(PORT, () => console.log(`Server running on port ${PORT} (database unavailable)`));

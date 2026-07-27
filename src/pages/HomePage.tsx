@@ -2,11 +2,11 @@ import { motion } from 'framer-motion';
 import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import AdvertisementCard from '../components/AdvertisementCard';
 import LazySection from '../components/LazySection';
 import { buildApiUrl } from '../config/api';
-import { getHomepageArticlesCacheKey, getStoredHomepageArticles, mergeHomepageArticles, setStoredHomepageArticles, type HomepageArticle } from '../utils/homepageArticles';
+import { getHomepageArticlesCacheKey, getHomepageArticlesRequestPromise, getStoredHomepageArticles, isHomepageArticlesCacheFresh, mergeHomepageArticles, optimizeImageUrl, type HomepageArticle } from '../utils/homepageArticles';
 
 type Article = HomepageArticle;
 
@@ -21,10 +21,13 @@ type Advertisement = {
 };
 
 const HomePage = () => {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [articles, setArticles] = useState<Article[]>(() => getStoredHomepageArticles(getHomepageArticlesCacheKey('All')));
   const [isArticlesLoading, setIsArticlesLoading] = useState(articles.length === 0);
+  const [showArticleSkeleton, setShowArticleSkeleton] = useState(false);
+  const [hasLoadedHomepageArticles, setHasLoadedHomepageArticles] = useState(Boolean(articles.length));
   const [heroAds, setHeroAds] = useState<Advertisement[]>([]);
   const [homepageAds, setHomepageAds] = useState<Advertisement[]>([]);
   const [storyAds, setStoryAds] = useState<Advertisement[]>([]);
@@ -84,13 +87,22 @@ const HomePage = () => {
     { name: 'Emerging Software', level: 90, note: 'Developer tools and infrastructure shaping modern product teams.' },
   ];
 
-  const fetchArticles = async (category?: string) => {
+  const fetchArticles = async (category?: string, options?: { forceRefresh?: boolean }) => {
     const targetCategory = category && category !== 'All' ? category : 'All';
     const cacheKey = getHomepageArticlesCacheKey(targetCategory);
     const cachedArticles = getStoredHomepageArticles(cacheKey);
+    const isCachedFresh = isHomepageArticlesCacheFresh(cacheKey);
+
+    if (cachedArticles.length > 0 && isCachedFresh && !options?.forceRefresh) {
+      setArticles(cachedArticles);
+      setHasLoadedHomepageArticles(true);
+      setIsArticlesLoading(false);
+      return;
+    }
 
     if (cachedArticles.length > 0) {
       setArticles(cachedArticles);
+      setHasLoadedHomepageArticles(true);
       setIsArticlesLoading(false);
     } else {
       setIsArticlesLoading(true);
@@ -100,19 +112,25 @@ const HomePage = () => {
     const requestController = new AbortController();
     latestArticlesRequestRef.current = requestController;
 
-    const base = '/api/articles?published=true';
+    const base = '/api/articles?published=true&limit=12';
     const url = targetCategory !== 'All' ? `${base}&category=${encodeURIComponent(targetCategory)}` : base;
 
-    try {
+    const requestPromise = getHomepageArticlesRequestPromise(cacheKey, async () => {
       const response = await fetch(buildApiUrl(url), { signal: requestController.signal });
       if (!response.ok) {
         throw new Error(`Unable to load articles (${response.status})`);
       }
       const data = await response.json();
       const normalizedArticles = Array.isArray(data) ? data : [];
-      const nextArticles = mergeHomepageArticles(cachedArticles, normalizedArticles);
-      setStoredHomepageArticles(nextArticles, cacheKey);
-      setArticles(nextArticles);
+      return mergeHomepageArticles(cachedArticles, normalizedArticles);
+    });
+
+    try {
+      const nextArticles = await requestPromise;
+      if (latestArticlesRequestRef.current?.signal === requestController.signal) {
+        setArticles(nextArticles);
+        setHasLoadedHomepageArticles(true);
+      }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error(error);
@@ -140,7 +158,7 @@ const HomePage = () => {
 
   useEffect(() => {
     void Promise.all([
-      fetchArticles(),
+      fetchArticles(undefined, { forceRefresh: false }),
       (async () => {
         try {
           const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
@@ -230,6 +248,25 @@ const HomePage = () => {
     void prefetchArticle();
     return () => controller.abort();
   }, [featuredArticle?.slug]);
+
+  useEffect(() => {
+    if (!hasLoadedHomepageArticles && location.pathname === '/') {
+      void fetchArticles('All', { forceRefresh: false });
+    }
+  }, [hasLoadedHomepageArticles, location.pathname]);
+
+  useEffect(() => {
+    if (!isArticlesLoading || articles.length > 0) {
+      setShowArticleSkeleton(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowArticleSkeleton(true);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [articles.length, isArticlesLoading]);
   const visibleOlderArticles = olderArticles.slice(0, visibleOlderCount);
   const trendingArticles = filteredStories.slice(0, 3);
 
@@ -395,7 +432,7 @@ const HomePage = () => {
             <motion.article initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} className="mt-8 border-b border-white/10 pb-10">
               <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
                 <div className="overflow-hidden">
-                  <img loading="eager" decoding="async" src={featuredArticle.image || '/placeholder.jpg'} alt={featuredArticle.title} className="h-[280px] w-full object-cover sm:h-[360px] lg:h-[440px]" />
+                  <img loading="eager" decoding="async" fetchPriority="high" sizes="(min-width: 1024px) 50vw, 100vw" src={optimizeImageUrl(featuredArticle.image, 1400)} alt={featuredArticle.title} className="h-[280px] w-full object-cover sm:h-[360px] lg:h-[440px]" />
                 </div>
                 <div className="max-w-2xl">
                   <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
@@ -419,7 +456,7 @@ const HomePage = () => {
             </motion.article>
           ) : null}
 
-          {isArticlesLoading && articles.length === 0 ? (
+          {showArticleSkeleton && articles.length === 0 ? (
             <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={`skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
@@ -443,7 +480,7 @@ const HomePage = () => {
                   <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -4, scale: 1.005 }} className="group border-b border-white/10 pb-8">
                     <div className="grid gap-6 lg:grid-cols-[0.32fr_0.68fr] lg:items-start">
                       <div className="overflow-hidden">
-                        <img src={release.image || '/placeholder.jpg'} alt={release.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64 lg:h-52" />
+                        <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 32vw, 100vw" src={optimizeImageUrl(release.image, 900)} alt={release.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64 lg:h-52" />
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
@@ -451,7 +488,7 @@ const HomePage = () => {
                           <span className="text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
                         </div>
                         <h3 className="home-article-title mt-4 text-white">{release.title}</h3>
-                        <p className="home-article-body mt-3 text-slate-400">{release.description}</p>
+                        <p className="home-article-body mt-3 text-slate-400">{release.excerpt || release.description}</p>
                         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
                           <span>{Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
                           <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
@@ -497,10 +534,10 @@ const HomePage = () => {
             const shouldShowStoryAd = index === 1 && storyAds[0];
             return (
               <div key={story.slug} className="space-y-6">
-                <Link to={`/articles/${story.slug}`} state={{ article: story }} className="group block">
+                <Link to={`/articles/${story.slug}`} state={{ article: story }} onMouseEnter={() => void fetch(buildApiUrl(`/api/articles/${encodeURIComponent(story.slug)}`), { headers: { 'Cache-Control': 'max-age=300' } }).catch(() => undefined)} onFocus={() => void fetch(buildApiUrl(`/api/articles/${encodeURIComponent(story.slug)}`), { headers: { 'Cache-Control': 'max-age=300' } }).catch(() => undefined)} className="group block">
                   <motion.article whileHover={{ y: -4, scale: 1.005 }} className="group relative h-full overflow-hidden bg-transparent transition-all duration-300">
                     <div className="overflow-hidden">
-                      <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={story.image || '/placeholder.jpg'} alt={story.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64" />
+                      <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={optimizeImageUrl(story.image, 900)} alt={story.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64" />
                     </div>
                     <div className="pt-6">
                       <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
@@ -594,7 +631,7 @@ const HomePage = () => {
           {trendingArticles.map((article) => (
             <Link key={article.slug} to={`/articles/${article.slug}`} state={{ article }} className="group block">
               <div className="h-full rounded-[1.6rem] border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-800/80 p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
-                <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={article.image || '/placeholder.jpg'} alt={article.title} className="mb-5 h-40 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105 sm:h-44" />
+                <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={optimizeImageUrl(article.image, 900)} alt={article.title} className="mb-5 h-40 w-full rounded-2xl object-cover transition duration-500 group-hover:scale-105 sm:h-44" />
                 <div className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">{article.category}</div>
                 <h3 className="mt-3 text-xl font-semibold text-white">{article.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-400">{article.description}</p>

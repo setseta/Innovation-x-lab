@@ -1,19 +1,25 @@
 export type HomepageArticle = {
-  _id: string;
+  _id?: string;
   title: string;
   slug: string;
   category: string;
   description: string;
+  excerpt?: string;
   image?: string;
   author?: string;
   content?: string;
   published?: boolean;
   createdAt?: string;
+  date?: string;
+  readingTime?: number;
 };
 
 export const HOME_ARTICLES_CACHE_KEY = 'ixl-homepage-articles';
 
 const inMemoryHomepageArticleCache = new Map<string, HomepageArticle[]>();
+const inFlightHomepageRequests = new Map<string, Promise<HomepageArticle[]>>();
+const homepageArticleTimestamps = new Map<string, number>();
+const homepageArticlesMaxAgeMs = 60_000;
 
 export const getHomepageArticlesCacheKey = (category?: string) => {
   if (!category || category === 'All') {
@@ -65,6 +71,7 @@ export const getStoredHomepageArticles = (cacheKey = HOME_ARTICLES_CACHE_KEY): H
 
 export const setStoredHomepageArticles = (articles: HomepageArticle[], cacheKey = HOME_ARTICLES_CACHE_KEY) => {
   inMemoryHomepageArticleCache.set(cacheKey, articles);
+  homepageArticleTimestamps.set(cacheKey, Date.now());
 
   if (typeof window === 'undefined') {
     return;
@@ -75,6 +82,69 @@ export const setStoredHomepageArticles = (articles: HomepageArticle[], cacheKey 
   } catch (error) {
     console.error('Unable to persist homepage articles to cache', error);
   }
+};
+
+export const isHomepageArticlesCacheFresh = (cacheKey = HOME_ARTICLES_CACHE_KEY) => {
+  const cachedAt = homepageArticleTimestamps.get(cacheKey);
+  if (!cachedAt) {
+    return false;
+  }
+
+  return Date.now() - cachedAt < homepageArticlesMaxAgeMs;
+};
+
+export const getHomepageArticlesRequestPromise = (cacheKey: string, request: () => Promise<HomepageArticle[]>) => {
+  const existing = inFlightHomepageRequests.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
+  const nextPromise = request().then((articles) => {
+    setStoredHomepageArticles(articles, cacheKey);
+    return articles;
+  }).finally(() => {
+    inFlightHomepageRequests.delete(cacheKey);
+  });
+
+  inFlightHomepageRequests.set(cacheKey, nextPromise);
+  return nextPromise;
+};
+
+export const optimizeImageUrl = (value?: string, width = 1200) => {
+  if (!value) {
+    return '/placeholder.jpg';
+  }
+
+  if (value.startsWith('data:') || value.startsWith('/') || value.startsWith('blob:')) {
+    return value;
+  }
+
+  if (typeof window === 'undefined') {
+    return value;
+  }
+
+  try {
+    const parsed = new URL(value, window.location.origin);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes('cloudinary.com')) {
+      parsed.searchParams.set('q', '80');
+      parsed.searchParams.set('auto', 'format');
+      parsed.searchParams.set('fit', 'max');
+      parsed.searchParams.set('w', String(width));
+      return parsed.toString();
+    }
+
+    if (host.includes('unsplash.com') || host.includes('images.unsplash.com')) {
+      parsed.searchParams.set('auto', 'format');
+      parsed.searchParams.set('q', '80');
+      parsed.searchParams.set('w', String(width));
+      return parsed.toString();
+    }
+  } catch (error) {
+    console.error('Unable to optimize image url', error);
+  }
+
+  return value;
 };
 
 export const mergeHomepageArticles = (existingArticles: HomepageArticle[], incomingArticles: HomepageArticle[]) => {

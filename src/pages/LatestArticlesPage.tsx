@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Search as SearchIcon } from 'lucide-react';
 import { buildApiUrl } from '../config/api';
+import { optimizeImageUrl } from '../utils/homepageArticles';
 
 type Article = {
   _id: string;
@@ -128,7 +129,7 @@ const LatestArticlesPage = () => {
               <Link key={article._id} to={`/articles/${article.slug}`} state={{ article }} className="group block">
                 <article className="group h-full overflow-hidden rounded-[1.65rem] border border-white/10 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/40 hover:shadow-[0_0_35px_rgba(34,211,238,0.14)]">
                   <div className="overflow-hidden">
-                    <img loading="lazy" decoding="async" src={article.image || '/placeholder.jpg'} alt={article.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
+                    <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={optimizeImageUrl(article.image, 900)} alt={article.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-110" />
                   </div>
                   <div className="p-7">
                     <div className="flex items-center justify-between gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">
