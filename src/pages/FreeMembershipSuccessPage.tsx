@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, Sparkles, Trophy } from 'lucide-react';
+import { ArrowRight, CheckCircle2, PartyPopper, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate } from 'react-router-dom';
@@ -62,7 +62,7 @@ const FreeMembershipSuccessPage = () => {
           </motion.div>
 
           <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-200">
-            <Sparkles size={15} /> Welcome aboard
+            <PartyPopper size={15} /> Welcome aboard
           </div>
 
           <h1 className="mt-6 text-4xl font-semibold text-white sm:text-5xl">Welcome to Innovation X Lab!</h1>

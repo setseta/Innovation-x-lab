@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, Play, Sparkles } from 'lucide-react';
+import { ArrowRight, Megaphone, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { buildApiUrl } from '../config/api';
 
@@ -147,7 +147,7 @@ const AdvertisementCard = ({ advertisement, variant = 'homepage', className = ''
         {mediaType === 'none' ? (
           <div className="flex h-full min-h-[180px] items-center justify-center bg-gradient-to-br from-cyan-500/10 via-violet-500/10 to-slate-300/20 dark:from-cyan-500/10 dark:via-violet-500/10 dark:to-slate-900/80">
             <div className="rounded-full border border-cyan-400/30 bg-white/70 p-4 text-cyan-500 dark:bg-slate-950/70 dark:text-cyan-300">
-              <Sparkles size={20} />
+              <Megaphone size={20} />
             </div>
           </div>
         ) : null}

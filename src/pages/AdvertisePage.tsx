@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Globe2, Megaphone, Rocket, Sparkles } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Globe2, LayoutGrid, Megaphone } from 'lucide-react';
 import { buildApiUrl } from '../config/api';
 
 type AdvertisingFormState = {
@@ -53,7 +53,7 @@ const benefits = [
   {
     title: 'Premium Brand Exposure',
     description: 'Showcase your business alongside trusted technology journalism.',
-    icon: Sparkles,
+    icon: BadgeCheck,
   },
   {
     title: 'Flexible Campaigns',
@@ -63,7 +63,7 @@ const benefits = [
   {
     title: 'Multiple Ad Placements',
     description: 'Homepage • Article pages • Sidebar • Newsletter sponsorship • Featured partner section',
-    icon: Rocket,
+    icon: LayoutGrid,
   },
 ];
 
