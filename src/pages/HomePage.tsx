@@ -37,12 +37,7 @@ const HomePage = () => {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
   const [visibleOlderCount, setVisibleOlderCount] = useState(4);
-  const [featuredStoriesCount, setFeaturedStoriesCount] = useState(() => {
-    if (typeof window === 'undefined') {
-      return 4;
-    }
-    return window.innerWidth >= 1280 ? 6 : 4;
-  });
+  const featuredStoriesCount = 6;
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const latestArticlesRequestRef = useRef<AbortController | null>(null);
   const latestReleasesRequestRef = useRef<AbortController | null>(null);
@@ -155,7 +150,7 @@ const HomePage = () => {
 
     setLatestReleasesLoading(true);
     try {
-      const response = await fetch(buildApiUrl('/api/articles?published=true&limit=3'), { signal: requestController.signal });
+      const response = await fetch(buildApiUrl('/api/articles?published=true&limit=4'), { signal: requestController.signal });
       if (!response.ok) {
         throw new Error(`Unable to load latest releases (${response.status})`);
       }
@@ -173,17 +168,6 @@ const HomePage = () => {
       }
     }
   };
-
-  useEffect(() => {
-    const handleResize = () => {
-      setFeaturedStoriesCount(window.innerWidth >= 1280 ? 6 : 4);
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   useEffect(() => {
     void Promise.all([
@@ -215,6 +199,7 @@ const HomePage = () => {
 
     return () => {
       latestArticlesRequestRef.current?.abort();
+      latestReleasesRequestRef.current?.abort();
     };
   }, []);
 
@@ -256,6 +241,28 @@ const HomePage = () => {
   const heroArticle = latestReleases[0] ?? null;
   const featuredStories = filteredStories.slice(0, featuredStoriesCount);
   const olderArticles = filteredStories.slice(4);
+  const hasActiveStoryFilters = searchTerm.trim().length > 0 || activeCategory !== 'All';
+
+  const getStoryExcerpt = (story: Article) => {
+    const rawText = story.excerpt || story.description || story.content || '';
+    const normalizedText = rawText.replace(/\s+/g, ' ').trim();
+    if (!normalizedText) {
+      return 'Read the full story for a deeper look at this latest development.';
+    }
+    if (normalizedText.length <= 220) {
+      return normalizedText;
+    }
+    return `${normalizedText.slice(0, 217).trimEnd()}…`;
+  };
+
+  const getFeaturedExcerpt = (story: Article) => {
+    const raw = story.content || story.excerpt || story.description || '';
+    const blocks = raw.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+    const joined = blocks.slice(0, 3).join(' ');
+    const trimmed = joined.replace(/\s+/g, ' ').trim();
+    if (!trimmed) return 'Read the full story for a deeper look at this latest development.';
+    return trimmed.length > 250 ? `${trimmed.slice(0, 250).trimEnd()}…` : trimmed;
+  };
 
   useEffect(() => {
     if (!heroArticle?.slug) {
@@ -467,7 +474,7 @@ const HomePage = () => {
 
           <div className="mt-8 space-y-8">
             {(latestReleasesLoading && latestReleases.length === 0) ? (
-              Array.from({ length: 3 }).map((_, index) => (
+              Array.from({ length: 4 }).map((_, index) => (
                 <div key={`latest-skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
                   <div className="h-48 w-full animate-pulse bg-slate-800" />
                   <div className="space-y-3 p-6">
@@ -478,35 +485,67 @@ const HomePage = () => {
                   </div>
                 </div>
               ))
-            ) : latestReleases.map((release, index) => {
-              const shouldShowAd = homepageAds[0] && (index + 1) % 3 === 0;
-              return (
-                <div key={release.slug} className="space-y-6">
-                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: index * 0.05 }} whileHover={{ y: -4, scale: 1.005 }} className="group border-b border-white/10 pb-8">
-                    <div className="grid gap-6 lg:grid-cols-[0.32fr_0.68fr] lg:items-start">
+            ) : (
+              <>
+                {latestReleases[0] ? (
+                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-900/70">
+                    <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
                       <div className="overflow-hidden">
-                        <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 32vw, 100vw" src={optimizeImageUrl(release.image, 900)} alt={release.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64 lg:h-52" />
+                        <img loading="eager" decoding="async" fetchPriority="high" sizes="(min-width: 1024px) 55vw, 100vw" src={optimizeImageUrl(latestReleases[0].image, 1400)} alt={latestReleases[0].title} className="h-72 w-full object-cover transition duration-500 group-hover:scale-105 lg:h-full" />
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
-                          <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{release.category}</span>
-                          <span className="text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
+                      <div className="flex flex-col justify-between p-6 sm:p-8">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
+                            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{latestReleases[0].category}</span>
+                            <span className="text-slate-500">{latestReleases[0].createdAt ? new Date(latestReleases[0].createdAt).toLocaleDateString() : 'New'}</span>
+                          </div>
+                          <h3 className="home-article-title mt-4 text-white">{latestReleases[0].title}</h3>
+                          <p className="home-article-body mt-4 text-slate-400">{getFeaturedExcerpt(latestReleases[0])}</p>
                         </div>
-                        <h3 className="home-article-title mt-4 text-white">{release.title}</h3>
-                        <p className="home-article-body mt-3 text-slate-400">{release.excerpt || release.description}</p>
                         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
-                          <span>{release.readingTime ?? Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
-                          <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
+                          <span>{latestReleases[0].readingTime ?? Math.max(3, Math.ceil(((latestReleases[0].content || '') as string).split(/\s+/).length / 180))} min read</span>
+                          <Link to={`/articles/${latestReleases[0].slug}`} state={{ article: latestReleases[0] }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
                             Continue Reading <ArrowRight size={14} />
                           </Link>
                         </div>
                       </div>
                     </div>
                   </motion.article>
-                  {shouldShowAd && homepageAds[0] ? <div className="pt-2"><AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-0 bg-transparent shadow-none" /></div> : null}
-                </div>
-              );
-            })}
+                ) : null}
+
+                {latestReleases.slice(1, 4).length > 0 ? (
+                  <div className="grid gap-6 lg:grid-cols-3">
+                    {latestReleases.slice(1, 4).map((release, idx) => {
+                          const shouldShowAd = homepageAds[0] && (idx + 1) % 3 === 0;
+                          return (
+                            <div key={release.slug} className="space-y-4">
+                              <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: idx * 0.03 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-900/70">
+                                <div className="overflow-hidden">
+                                  <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={optimizeImageUrl(release.image, 900)} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-105" />
+                                </div>
+                                <div className="p-6">
+                                  <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
+                                    <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{release.category}</span>
+                                    <span className="text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
+                                  </div>
+                                  <h3 className="home-article-title mt-4 text-white">{release.title}</h3>
+                                  <p className="home-article-body mt-3 text-slate-400">{getStoryExcerpt(release)}</p>
+                                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
+                                    <span>{release.readingTime ?? Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                                    <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
+                                      Continue Reading <ArrowRight size={14} />
+                                    </Link>
+                                  </div>
+                                </div>
+                              </motion.article>
+                              {shouldShowAd ? <div className="pt-2"><AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-0 bg-transparent shadow-none" /></div> : null}
+                            </div>
+                          );
+                        })}
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
 
           <div className="mt-8 flex justify-center">
@@ -540,20 +579,20 @@ const HomePage = () => {
             return (
               <div key={story.slug} className="space-y-6">
                 <Link to={`/articles/${story.slug}`} state={{ article: story }} onMouseEnter={() => void fetch(buildApiUrl(`/api/articles/${encodeURIComponent(story.slug)}`), { headers: { 'Cache-Control': 'max-age=300' } }).catch(() => undefined)} onFocus={() => void fetch(buildApiUrl(`/api/articles/${encodeURIComponent(story.slug)}`), { headers: { 'Cache-Control': 'max-age=300' } }).catch(() => undefined)} className="group block">
-                  <motion.article whileHover={{ y: -4, scale: 1.005 }} className="group relative h-full overflow-hidden bg-transparent transition-all duration-300">
+                  <motion.article whileHover={{ y: -4, scale: 1.005 }} className="group relative h-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-900/70 transition-all duration-300">
                     <div className="overflow-hidden">
                       <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={optimizeImageUrl(story.image, 900)} alt={story.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64" />
                     </div>
-                    <div className="pt-6">
+                    <div className="p-6">
                       <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
                         <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{story.category}</span>
                         <span className="text-slate-500">{story.createdAt ? new Date(story.createdAt).toLocaleDateString() : 'New'}</span>
                       </div>
                       <h3 className="home-article-title mt-4 text-white">{story.title}</h3>
-                      <p className="home-article-body mt-3 text-slate-400">{story.description}</p>
+                      <p className="home-article-body mt-3 text-slate-400">{getStoryExcerpt(story)}</p>
                       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
-                        <span>{story.author || 'Innovation X Lab'}</span>
-                        <span className="inline-flex items-center gap-2 font-semibold text-cyan-300">Continue Reading <ArrowRight size={14} /></span>
+                        <span>{story.readingTime ?? Math.max(3, Math.ceil(((story.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                        <span className="inline-flex items-center gap-2 font-semibold text-cyan-300">Read Story <ArrowRight size={14} /></span>
                       </div>
                     </div>
                   </motion.article>
@@ -568,7 +607,7 @@ const HomePage = () => {
             Explore More Stories
           </Link>
         </div>
-        {filteredStories.length === 0 && <p className="mt-6 text-sm text-slate-400">No stories match that search yet. Try a different term or category.</p>}
+        {hasActiveStoryFilters && filteredStories.length === 0 ? <p className="mt-6 text-sm text-slate-400">No stories match that search yet. Try a different term or category.</p> : null}
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-28">
