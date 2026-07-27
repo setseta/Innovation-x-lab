@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Zap } from 'lucide-react';
+import { Activity, ArrowRight, Bot, Cpu, Orbit, Rocket, Share2, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useLocation } from 'react-router-dom';
@@ -28,19 +28,14 @@ const HomePage = () => {
   const [isArticlesLoading, setIsArticlesLoading] = useState(articles.length === 0);
   const [showArticleSkeleton, setShowArticleSkeleton] = useState(false);
   const [hasLoadedHomepageArticles, setHasLoadedHomepageArticles] = useState(Boolean(articles.length));
-  const [latestReleases, setLatestReleases] = useState<Article[]>([]);
-  const [latestReleasesLoading, setLatestReleasesLoading] = useState(true);
   const [heroAds, setHeroAds] = useState<Advertisement[]>([]);
   const [homepageAds, setHomepageAds] = useState<Advertisement[]>([]);
   const [storyAds, setStoryAds] = useState<Advertisement[]>([]);
   const [newsletterAds, setNewsletterAds] = useState<Advertisement[]>([]);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterStatus, setNewsletterStatus] = useState('');
-  const [visibleOlderCount, setVisibleOlderCount] = useState(4);
-  const featuredStoriesCount = 6;
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [shareMessage, setShareMessage] = useState('');
   const latestArticlesRequestRef = useRef<AbortController | null>(null);
-  const latestReleasesRequestRef = useRef<AbortController | null>(null);
 
   const categories = ['All', 'AI Lab', 'Gadget Lab', 'Software Lab', 'Code Lab', 'Startup Lab', 'Review Lab'];
 
@@ -85,9 +80,8 @@ const HomePage = () => {
     { name: 'Emerging Software', level: 90, note: 'Developer tools and infrastructure shaping modern product teams.' },
   ];
 
-  const fetchArticles = async (category?: string, options?: { forceRefresh?: boolean }) => {
-    const targetCategory = category && category !== 'All' ? category : 'All';
-    const cacheKey = getHomepageArticlesCacheKey(targetCategory);
+  const fetchArticles = async (options?: { forceRefresh?: boolean }) => {
+    const cacheKey = getHomepageArticlesCacheKey('All');
     const cachedArticles = getStoredHomepageArticles(cacheKey);
     const isCachedFresh = isHomepageArticlesCacheFresh(cacheKey);
 
@@ -110,8 +104,7 @@ const HomePage = () => {
     const requestController = new AbortController();
     latestArticlesRequestRef.current = requestController;
 
-    const base = '/api/articles?published=true&limit=12';
-    const url = targetCategory !== 'All' ? `${base}&category=${encodeURIComponent(targetCategory)}` : base;
+    const url = '/api/articles?published=true&limit=16';
 
     const requestPromise = getHomepageArticlesRequestPromise(cacheKey, async () => {
       const response = await fetch(buildApiUrl(url), { signal: requestController.signal });
@@ -143,36 +136,9 @@ const HomePage = () => {
     }
   };
 
-  const loadLatestReleases = async () => {
-    latestReleasesRequestRef.current?.abort();
-    const requestController = new AbortController();
-    latestReleasesRequestRef.current = requestController;
-
-    setLatestReleasesLoading(true);
-    try {
-      const response = await fetch(buildApiUrl('/api/articles?published=true&limit=4'), { signal: requestController.signal });
-      if (!response.ok) {
-        throw new Error(`Unable to load latest releases (${response.status})`);
-      }
-      const data = await response.json();
-      const normalizedArticles = Array.isArray(data) ? data : [];
-      setLatestReleases(normalizedArticles);
-    } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
-        console.error(error);
-        setLatestReleases([]);
-      }
-    } finally {
-      if (latestReleasesRequestRef.current?.signal === requestController.signal) {
-        setLatestReleasesLoading(false);
-      }
-    }
-  };
-
   useEffect(() => {
     void Promise.all([
-      fetchArticles(undefined, { forceRefresh: false }),
-      loadLatestReleases(),
+      fetchArticles({ forceRefresh: false }),
       (async () => {
         try {
           const [heroResponse, homepageResponse, storyResponse, newsletterResponse] = await Promise.all([
@@ -199,7 +165,6 @@ const HomePage = () => {
 
     return () => {
       latestArticlesRequestRef.current?.abort();
-      latestReleasesRequestRef.current?.abort();
     };
   }, []);
 
@@ -231,16 +196,18 @@ const HomePage = () => {
 */
 
   const filteredStories = useMemo(() => {
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.trim().toLowerCase();
     return articles.filter((story) => {
-      const matchesSearch = !term || story.title.toLowerCase().includes(term) || story.description.toLowerCase().includes(term);
-      return matchesSearch;
+      const categoryMatches = activeCategory === 'All' || story.category === activeCategory;
+      const matchesSearch = !term || story.title.toLowerCase().includes(term) || story.description.toLowerCase().includes(term) || (story.content?.toLowerCase().includes(term));
+      return categoryMatches && matchesSearch;
     });
-  }, [searchTerm, articles]);
+  }, [searchTerm, activeCategory, articles]);
 
+  const latestReleases = filteredStories.slice(0, 4);
   const heroArticle = latestReleases[0] ?? null;
-  const featuredStories = filteredStories.slice(0, featuredStoriesCount);
-  const olderArticles = filteredStories.slice(4);
+  const compactLatestReleases = latestReleases.slice(1);
+  const acrossLabStories = filteredStories.slice(4, 10);
   const hasActiveStoryFilters = searchTerm.trim().length > 0 || activeCategory !== 'All';
 
   const getStoryExcerpt = (story: Article) => {
@@ -262,6 +229,39 @@ const HomePage = () => {
     const trimmed = joined.replace(/\s+/g, ' ').trim();
     if (!trimmed) return 'Read the full story for a deeper look at this latest development.';
     return trimmed.length > 250 ? `${trimmed.slice(0, 250).trimEnd()}…` : trimmed;
+  };
+
+  useEffect(() => {
+    if (!articles.length) {
+      return;
+    }
+
+    const urls = articles.slice(0, 10).map((article) => optimizeImageUrl(article.image, 900));
+    urls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, [articles]);
+
+  const handleShare = async () => {
+    if (!heroArticle) {
+      return;
+    }
+
+    const shareUrl = `${window.location.origin}/articles/${heroArticle.slug}`;
+    const shareText = `${heroArticle.title} — ${getFeaturedExcerpt(heroArticle)}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: heroArticle.title, text: shareText, url: shareUrl });
+        setShareMessage('Article shared successfully.');
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareMessage('Link copied to clipboard.');
+      }
+    } catch (error) {
+      setShareMessage('Unable to share right now.');
+    }
   };
 
   useEffect(() => {
@@ -287,7 +287,7 @@ const HomePage = () => {
 
   useEffect(() => {
     if (!hasLoadedHomepageArticles && location.pathname === '/') {
-      void fetchArticles('All', { forceRefresh: false });
+      void fetchArticles({ forceRefresh: false });
     }
   }, [hasLoadedHomepageArticles, location.pathname]);
 
@@ -303,30 +303,8 @@ const HomePage = () => {
 
     return () => window.clearTimeout(timeoutId);
   }, [articles.length, isArticlesLoading]);
-  const visibleOlderArticles = olderArticles.slice(0, visibleOlderCount);
+
   const trendingArticles = filteredStories.slice(0, 3);
-
-  useEffect(() => {
-    const node = loadMoreRef.current;
-    if (!node || visibleOlderArticles.length >= olderArticles.length) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) {
-            return;
-          }
-          setVisibleOlderCount((current) => Math.min(current + 3, olderArticles.length));
-        });
-      },
-      { rootMargin: '240px' },
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [olderArticles.length, visibleOlderArticles.length]);
 
   const handleNewsletterSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -473,7 +451,7 @@ const HomePage = () => {
           ) : null}
 
           <div className="mt-8 space-y-8">
-            {(latestReleasesLoading && latestReleases.length === 0) ? (
+            {(isArticlesLoading && articles.length === 0) ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <div key={`latest-skeleton-${index}`} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950/80">
                   <div className="h-48 w-full animate-pulse bg-slate-800" />
@@ -496,52 +474,59 @@ const HomePage = () => {
                       <div className="flex flex-col justify-between p-6 sm:p-8">
                         <div>
                           <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
-                            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{latestReleases[0].category}</span>
-                            <span className="text-slate-500">{latestReleases[0].createdAt ? new Date(latestReleases[0].createdAt).toLocaleDateString() : 'New'}</span>
+                            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{heroArticle.category}</span>
+                            <span className="text-slate-500">{heroArticle.createdAt ? new Date(heroArticle.createdAt).toLocaleDateString() : 'New'}</span>
                           </div>
-                          <h3 className="home-article-title mt-4 text-white">{latestReleases[0].title}</h3>
-                          <p className="home-article-body mt-4 text-slate-400">{getFeaturedExcerpt(latestReleases[0])}</p>
+                          <h3 className="home-article-title mt-4 text-white">{heroArticle.title}</h3>
+                          <p className="home-article-body mt-4 text-slate-400">{getFeaturedExcerpt(heroArticle)}</p>
                         </div>
                         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
-                          <span>{latestReleases[0].readingTime ?? Math.max(3, Math.ceil(((latestReleases[0].content || '') as string).split(/\s+/).length / 180))} min read</span>
-                          <Link to={`/articles/${latestReleases[0].slug}`} state={{ article: latestReleases[0] }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
+                          <span>{heroArticle.author || 'Innovation X Lab'}</span>
+                          <span>{heroArticle.readingTime ?? Math.max(3, Math.ceil(((heroArticle.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <Link to={`/articles/${heroArticle.slug}`} state={{ article: heroArticle }} className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15">
                             Continue Reading <ArrowRight size={14} />
                           </Link>
+                          <button type="button" onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10">
+                            <Share2 size={16} /> Share
+                          </button>
                         </div>
+                        {shareMessage ? <div className="mt-3 text-sm text-cyan-300">{shareMessage}</div> : null}
                       </div>
                     </div>
                   </motion.article>
                 ) : null}
 
-                {latestReleases.slice(1, 4).length > 0 ? (
+                {compactLatestReleases.length > 0 ? (
                   <div className="grid gap-6 lg:grid-cols-3">
-                    {latestReleases.slice(1, 4).map((release, idx) => {
-                          const shouldShowAd = homepageAds[0] && (idx + 1) % 3 === 0;
-                          return (
-                            <div key={release.slug} className="space-y-4">
-                              <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: idx * 0.03 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-900/70">
-                                <div className="overflow-hidden">
-                                  <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={optimizeImageUrl(release.image, 900)} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-105" />
-                                </div>
-                                <div className="p-6">
-                                  <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
-                                    <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{release.category}</span>
-                                    <span className="text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
-                                  </div>
-                                  <h3 className="home-article-title mt-4 text-white">{release.title}</h3>
-                                  <p className="home-article-body mt-3 text-slate-400">{getStoryExcerpt(release)}</p>
-                                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
-                                    <span>{release.readingTime ?? Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
-                                    <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
-                                      Continue Reading <ArrowRight size={14} />
-                                    </Link>
-                                  </div>
-                                </div>
-                              </motion.article>
-                              {shouldShowAd ? <div className="pt-2"><AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-0 bg-transparent shadow-none" /></div> : null}
+                    {compactLatestReleases.map((release, idx) => {
+                      const shouldShowAd = homepageAds[0] && (idx + 1) % 3 === 0;
+                      return (
+                        <div key={release.slug} className="space-y-4">
+                          <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: idx * 0.03 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-900/70">
+                            <div className="overflow-hidden">
+                              <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={optimizeImageUrl(release.image, 900)} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-105" />
                             </div>
-                          );
-                        })}
+                            <div className="p-6">
+                              <div className="flex flex-wrap items-center gap-3 text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300">
+                                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5">{release.category}</span>
+                                <span className="text-slate-500">{release.createdAt ? new Date(release.createdAt).toLocaleDateString() : 'New'}</span>
+                              </div>
+                              <h3 className="home-article-title mt-4 text-white">{release.title}</h3>
+                              <p className="home-article-body mt-3 text-slate-400">{getStoryExcerpt(release)}</p>
+                              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-sm text-slate-400">
+                                <span>{release.readingTime ?? Math.max(3, Math.ceil(((release.content || '') as string).split(/\s+/).length / 180))} min read</span>
+                                <Link to={`/articles/${release.slug}`} state={{ article: release }} className="inline-flex items-center gap-2 font-semibold text-cyan-300 transition hover:text-cyan-200">
+                                  Continue Reading <ArrowRight size={14} />
+                                </Link>
+                              </div>
+                            </div>
+                          </motion.article>
+                          {shouldShowAd ? <div className="pt-2"><AdvertisementCard advertisement={homepageAds[0]} variant="inline" className="border-0 bg-transparent shadow-none" /></div> : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : null}
               </>
@@ -566,7 +551,7 @@ const HomePage = () => {
             <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 outline-none" placeholder="Search stories" />
             <div className="flex flex-wrap gap-2">
               {categories.map((category) => (
-                <button key={category} onClick={() => { setActiveCategory(category); fetchArticles(category); }} className={`rounded-full px-3 py-2 text-sm ${activeCategory === category ? 'bg-cyan-500 text-white' : 'border border-white/10 bg-white/5 text-slate-300'}`}>
+                <button key={category} onClick={() => setActiveCategory(category)} className={`rounded-full px-3 py-2 text-sm ${activeCategory === category ? 'bg-cyan-500 text-white' : 'border border-white/10 bg-white/5 text-slate-300'}`}>
                   {category}
                 </button>
               ))}
@@ -574,7 +559,7 @@ const HomePage = () => {
           </div>
         </div>
         <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {featuredStories.map((story, index) => {
+          {acrossLabStories.map((story, index) => {
             const shouldShowStoryAd = index === 1 && storyAds[0];
             return (
               <div key={story.slug} className="space-y-6">
