@@ -441,7 +441,7 @@ const HomePage = () => {
             ) : (
               <>
                 {latestReleases[0] ? (
-                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-900/70">
+                  <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden border-b border-cyan-400/20">
                     <div className="grid gap-0 lg:grid-cols-[1.08fr_0.92fr]">
                       <div className="overflow-hidden">
                         <img loading="eager" decoding="async" fetchPriority="high" sizes="(min-width: 1024px) 55vw, 100vw" src={optimizeImageUrl(latestReleases[0].image, 1400)} alt={latestReleases[0].title} className="h-72 w-full object-cover transition duration-500 group-hover:scale-105 lg:h-full" />
@@ -479,7 +479,7 @@ const HomePage = () => {
                       const shouldShowAd = homepageAds[0] && (idx + 1) % 3 === 0;
                       return (
                         <div key={release.slug} className="space-y-4">
-                          <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: idx * 0.03 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-900/70">
+                          <motion.article initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }} transition={{ duration: 0.35, delay: idx * 0.03 }} whileHover={{ y: -4, scale: 1.005 }} className="group overflow-hidden border-b border-cyan-400/20">
                             <div className="overflow-hidden">
                               <img loading="lazy" decoding="async" sizes="(min-width: 1024px) 33vw, 100vw" src={optimizeImageUrl(release.image, 900)} alt={release.title} className="h-48 w-full object-cover transition duration-500 group-hover:scale-105" />
                             </div>
@@ -539,7 +539,7 @@ const HomePage = () => {
             return (
               <div key={story.slug} className="space-y-6">
                 <Link to={`/articles/${story.slug}`} state={{ article: story }} onMouseEnter={() => void fetch(buildApiUrl(`/api/articles/${encodeURIComponent(story.slug)}`), { headers: { 'Cache-Control': 'max-age=300' } }).catch(() => undefined)} onFocus={() => void fetch(buildApiUrl(`/api/articles/${encodeURIComponent(story.slug)}`), { headers: { 'Cache-Control': 'max-age=300' } }).catch(() => undefined)} className="group block">
-                  <motion.article whileHover={{ y: -4, scale: 1.005 }} className="group relative h-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-900/70 transition-all duration-300">
+                  <motion.article whileHover={{ y: -4, scale: 1.005 }} className="group relative h-full overflow-hidden border-b border-cyan-400/20 transition-all duration-300">
                     <div className="overflow-hidden">
                       <img loading="lazy" decoding="async" sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw" src={optimizeImageUrl(story.image, 900)} alt={story.title} className="h-56 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-64" />
                     </div>
